@@ -34,17 +34,17 @@ def channel_shuffle(x, groups):
 
     return x
 
-class InvertedResigual(nn.Module):
+class InvertedResidual(nn.Module):
     def __init__(self, inp, oup, stride, benchmodel):
-        super(InvertedResigual, self).__init__()
+        super(InvertedResidual, self).__init__()
         self.benchmodel = benchmodel
         self.stride = stride
         assert stride in [1, 2]
 
         oup_inc = oup // 2
 
-        if self.benchmodel == 1:
-            self.banch2 = nn.Sequential(
+        if self.benchmodel == 1:    # basic unit
+            self.branch2 = nn.Sequential(
                 # pw
                 nn.Conv2d(oup_inc, oup_inc, 1, 1, 0, bias=False),
                 nn.BatchNorm2d(oup_inc),
@@ -57,8 +57,8 @@ class InvertedResigual(nn.Module):
                 nn.BatchNorm2d(oup_inc),
                 nn.ReLU(inplace=True),
             )
-        else:
-            self.banch1 = nn.Sequential(
+        else:   # down sample (2x)
+            self.branch1 = nn.Sequential(
                 # dw
                 nn.Conv2d(inp, inp, 3, stride, 1, groups=inp, bias=False),
                 nn.BatchNorm2d(inp),
@@ -68,7 +68,7 @@ class InvertedResigual(nn.Module):
                 nn.ReLU(inplace=True),
             )
 
-            self.banch2 = nn.Sequential(
+            self.branch2 = nn.Sequential(
                 # pw
                 nn.Conv2d(inp, oup_inc, 1, 1, 0, bias=False),
                 nn.BatchNorm2d(oup_inc),
@@ -91,9 +91,9 @@ class InvertedResigual(nn.Module):
         if 1 == self.benchmodel:
             x1 = x[:, :(x.shape[1]//2), :, :]
             x2 = x[:, (x.shape[1]//2):, :, :]
-            out = self._concat(x1, self.banch2(x2))
+            out = self._concat(x1, self.branch2(x2))
         elif 2 == self.benchmodel:
-            out = self._concat(self.banch1(x), self.banch2(x))
+            out = self._concat(self.branch1(x), self.branch2(x))
 
         return channel_shuffle(out, 2)
 
@@ -131,16 +131,16 @@ class ShuffleNetV2(nn.Module):
             for i in range(numrepeat):
                 if i == 0:
                     # (inp, oup, stride, benchmodel)
-                    self.features.append(InvertedResigual(input_channel, output_channel, 2, 2))
+                    self.features.append(InvertedResidual(input_channel, output_channel, 2, 2))
                 else:
-                    self.features.append(InvertedResigual(input_channel, output_channel, 1, 1))
+                    self.features.append(InvertedResidual(input_channel, output_channel, 1, 1))
                 input_channel = output_channel
 
         # make it nn.Sequential
         self.features = nn.Sequential(*self.features)
 
         # building last several layers
-        self.conv_last = conv_1x1_bn(input_channel, self.stage_out_channels[-1])
+        self.conv5 = conv_1x1_bn(input_channel, self.stage_out_channels[-1])
         self.globalpool = nn.Sequential(nn.AvgPool2d(int(input_size/32)))
 
         # building classifier
@@ -149,8 +149,8 @@ class ShuffleNetV2(nn.Module):
     def forward(self, x):
         x = self.conv1(x)
         x = self.maxpool(x)
-        x = self.features(x)
-        x = self.conv_last(x)
+        x = self.features(x)    # stage2, stage3, stage4
+        x = self.conv5(x)
         x = self.globalpool(x)
         x = x.view(-1, self.stage_out_channels[-1])
         x = self.classifier(x)
