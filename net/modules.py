@@ -7,27 +7,25 @@ import torch.nn.functional as F
 class CEM(nn.Module):
     def __init__(self, arg):
         super(CEM, self).__init__()
-        self.conv4_lat = nn.Conv2d(245, 245, kernel_size=1, stride=1, padding=1)
+        self.conv4 = nn.Conv2d(245, 245, kernel_size=1, stride=1, padding=1)
 
-        # self.conv5 = stage(4)
-        self.conv5_lat = nn.Conv2d(245, 245, kernel_size=1, stride=1, padding=1)
-        #self.conv5_upsample = 
+        self.stage4 = stage(4)
+        self.conv5 = nn.Conv2d(245, 245, kernel_size=1, stride=1, padding=1)
+        self.conv5_upsample = nn.Upsample((10, 10), (2, 2), 'bilinear')
 
         self.avg_pool = nn.AvgPool2d(10)
         self.conv_glb = nn.Conv2d(245, 245, kernel_size=1, stride=1, padding=1)
         # self.broadcast = 
 
-
-
-        slef.c4_lat
-
-    def forward(slef, input):
-        c4 = x
+    def forward(slef, inputs):
+        c4 = inputs[0]  # stage3 output feature map
         c4_lat = self.conv_lat(c4)
 
-        c5_lat = self.conv()
+        c5 = inputs[1]  # stage4 output feature map
+        c5_lat = self.conv(c5)
+        c5_lat = self.conv5_upsample(c5_lat)
         
-        c_glb = self.avgpool()
+        c_glb = self.avg_pool(c5)
         c_glb_lat = self.conv_glb(c_glb)
 
         out = c4_lat + c5_lat + cglb_lat
