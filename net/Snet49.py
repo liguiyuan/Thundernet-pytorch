@@ -114,6 +114,11 @@ class ShuffleNetV2(nn.Module):
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         self.features = []
+        self.features1 = []
+        self.features2 = []
+        self.features3 = []
+
+        """
         # building inverted residual blocks
         for idxstage in range(len(self.stage_repeats)):
             numrepeat = self.stage_repeats[idxstage]
@@ -126,8 +131,46 @@ class ShuffleNetV2(nn.Module):
                     self.features.append(InvertedResidual(input_channel, output_channel, 1, 1))
                 input_channel = output_channel
 
+        """
+        # stage2
+        numrepeat = self.stage_repeats[0]
+        output_channel = self.stage_out_channels[2]
+        for i in range(numrepeat):
+            if i == 0:
+                # (inp, oup, stride, benchmodel)
+                self.features1.append(InvertedResidual(input_channel, output_channel, 2, 2)) 
+            else:
+               self.features1.append(InvertedResidual(input_channel, output_channel, 1, 1)) 
+            input_channel = output_channel
+
+        # stage3
+        numrepeat = self.stage_repeats[1]
+        output_channel = self.stage_out_channels[3]
+        for i in range(numrepeat):
+            if i == 0:
+                # (inp, oup, stride, benchmodel)
+                self.features2.append(InvertedResidual(input_channel, output_channel, 2, 2)) 
+            else:
+               self.features2.append(InvertedResidual(input_channel, output_channel, 1, 1)) 
+            input_channel = output_channel
+
+        # stage4
+        numrepeat = self.stage_repeats[2]
+        output_channel = self.stage_out_channels[4]
+        for i in range(numrepeat):
+            if i == 0:
+                # (inp, oup, stride, benchmodel)
+                self.features3.append(InvertedResidual(input_channel, output_channel, 2, 2)) 
+            else:
+               self.features3.append(InvertedResidual(input_channel, output_channel, 1, 1)) 
+            input_channel = output_channel
+        
+
         # make it nn.Sequential
-        self.features = nn.Sequential(*self.features)
+        #self.features = nn.Sequential(*self.features)
+        self.features1 = nn.Sequential(*self.features1)
+        self.features2 = nn.Sequential(*self.features2)
+        self.features3 = nn.Sequential(*self.features3)
 
         # building last several layers
         self.conv5 = conv_1x1_bn(input_channel, self.stage_out_channels[-1])
@@ -139,16 +182,70 @@ class ShuffleNetV2(nn.Module):
     def forward(self, x):
         x = self.conv1(x)
         x = self.maxpool(x)
-        x = self.features(x)    # stage2, stage3, stage4
-        x = self.conv5(x)
+        #x = self.features(x)    # stage2, stage3, stage4
+
+        x = self.features1(x)       # stage2
+        out1 = self.features2(x)    # stage3
+        x = self.features3(out1)    # stage4
+
+        out2 = self.conv5(x)
         x = self.globalpool(x)
         x = x.view(-1, self.stage_out_channels[-1])
         x = self.classifier(x)
-        return x
+        return x, out1, out2
+
+
+class CEM(nn.Module):
+    def __init__(self):
+        super(CEM, self).__init__()
+        self.conv4 = nn.Conv2d(120, 245, kernel_size=1, stride=1, padding=1)
+
+        self.conv5 = nn.Conv2d(512, 245, kernel_size=1, stride=1, padding=1)
+        #self.conv5_upsample = nn.Upsample((10, 10), (2, 2), 'bilinear')
+
+        self.avg_pool = nn.AvgPool2d(10)
+        self.conv_glb = nn.Conv2d(512, 245, kernel_size=1, stride=1, padding=1)
+        # self.broadcast = 
+
+    def forward(slef, inputs):
+        c4 = inputs[0]  # stage3 output feature map
+        c4_lat = self.conv4(c4)
+
+        c5 = inputs[1]  # conv5 output feature map
+        c5_lat = self.conv5(c5)
+        c5_lat = F.interpolate(input=c5_lat, scale_factor=(2, 2), mode='bilinear')
+
+        c_glb = self.avg_pool(c5)
+        c_glb_lat = self.conv_glb(c_glb)
+
+        out = c4_lat + c5_lat + c_glb_lat
+
+        return out
+
+class SAM(nn.Module):
+    def __init__(self):
+        super(SAM, self).__init__()
+        self.conv1 = nn.Conv2d(245, 245, 1, 1, 0, bias=False) # input channel = 245 ?
+        self.bn = nn.BatchNorm2d(245)
+        
+    def forward(self, input):
+        cem = input[0]
+        rpn = input[1]
+
+        sam = slef.conv1(rpn)
+        sam = self.bn(sam)
+        sam = F.sigmoid(sam)
+        out = cem * sam
+
+        return out
 
 def Snet():
-    model = ShuffleNetV2()
-    return model
+    snet, out1, out2 = ShuffleNetV2()
+
+    cem_input = out1, out2
+    f_cem = CEM(cem_input)
+
+    return snet
 
         
 if __name__ == '__main__':
