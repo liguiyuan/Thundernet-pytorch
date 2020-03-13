@@ -239,6 +239,24 @@ class SAM(nn.Module):
 
         return out
 
+class RPN(nn.Module):
+    def __init__(self):
+        super(RPN, self).__init__()
+        self.arg = arg
+
+        self.dw5_5 = nn.Conv2d(in_channel, in_channel, kernel_size=5, stride=1, padding=2, groups=in_channel)
+        self.conv1 = nn.Conv2d(in_channel, 256, 1, 1, 0)
+        #self.bn1 = nn.BatchNorm2d(in_channel)
+
+
+
+    def forward(self, x):
+        x = self.dw5_5()
+        out1 = self.conv1(x)
+
+        
+        
+
 def Snet():
     snet, out1, out2 = ShuffleNetV2()
 
