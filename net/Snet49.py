@@ -229,8 +229,8 @@ class SAM(nn.Module):
         self.bn = nn.BatchNorm2d(245)
         
     def forward(self, input):
-        cem = input[0]
-        rpn = input[1]
+        cem = input[0]      # feature map of CEM
+        rpn = input[1]      # feature map of RPN
 
         sam = slef.conv1(rpn)
         sam = self.bn(sam)
