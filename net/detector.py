@@ -70,36 +70,28 @@ class PSRoiAlignPooling(nn.Module):
 
 
 
-class SAM(nn.Module):
-    def __init__(self):
-        super(SAM, self).__init__()
-        self.conv1 = nn.Conv2d(245, 245, 1, 1, 0, bias=False) # input channel = 245 ?
-        self.bn = nn.BatchNorm2d(245)
-        
-    def forward(self, input):
-        cem = input[0]      # feature map of CEM
-        rpn = input[1]      # feature map of RPN
-
-        sam = slef.conv1(rpn)
-        sam = self.bn(sam)
-        sam = F.sigmoid(sam)
-        out = cem * sam
-
-        return out
-
 class RPN(nn.Module):
     def __init__(self, in_channels, num_anchors, nb_classes, in_channels2):
         super(RPN, self).__init__()
         #rpn part
+
+        # SAM module
         #self.conv1 = Conv_1x1(in_channels=in_channels, out_channels=245, strides=1, groups=1)
         self.conv1 = nn.Conv2d(245, 245, 1, 1, 0, bias=False) # input channel = 245 ?
         self.bn1 = nn.BatchNorm2d(245)
 
+        # RPN
+        """
         self.depthwise_conv5x5 = DepthwiseConv5x5(channels=245, stride=1)
         self.conv_1x1 = Conv_1x1(in_channels=in_channels2, out_channels=265, stride=1, groups=1)
         self.conv2 = nn.Conv2d(num_anchors, (1, 1))
         self.sigmoid = nn.Sigmoid()
         self.conv3 = nn.Conv2d(num_anchors * 4, (1, 1))
+        """
+        self.dw5x5 = nn.Conv2d(245, 245, kernel_size=5, stride=1, padding=1, groups=245)
+        self.conv1_1 = nn.Conv2d(245, 256, kernel_size=1, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(num_anchors, (1, 1))         # class
+        self.conv3 = nn.Conv2d(num_anchors * 4, (1, 1))     # region
 
         # classifier part
         self.dropout = nn.Dropout(0.5)
@@ -109,11 +101,17 @@ class RPN(nn.Module):
         self.softmax = nn.Softmax()
         self.linear_reg = nn.Linear(4 * (nb_classes - 1))
 
-    def forward(self, x):
+    def forward(self, x):   # x: CEM output feature (20x20x245)
         # RPN
+        """
         x = self.depthwise_conv5x5(x)
         x = self.Conv_1x1(x)
         x_class = self.sigmoid(self.conv2(x))
+        x_regr = self.conv3(x)
+        """
+        x = self.dw5x5(x)
+        x = self.conv1_1(x)
+        x_class = F.sigmoid(self.conv2(x))
         x_regr = self.conv3(x)
 
         return [x_class, x_regr]
