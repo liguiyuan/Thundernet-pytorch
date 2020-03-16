@@ -69,11 +69,32 @@ class PSRoiAlignPooling(nn.Module):
         return final_output
 
 
+
+class SAM(nn.Module):
+    def __init__(self):
+        super(SAM, self).__init__()
+        self.conv1 = nn.Conv2d(245, 245, 1, 1, 0, bias=False) # input channel = 245 ?
+        self.bn = nn.BatchNorm2d(245)
+        
+    def forward(self, input):
+        cem = input[0]      # feature map of CEM
+        rpn = input[1]      # feature map of RPN
+
+        sam = slef.conv1(rpn)
+        sam = self.bn(sam)
+        sam = F.sigmoid(sam)
+        out = cem * sam
+
+        return out
+
 class RPN(nn.Module):
     def __init__(self, in_channels, num_anchors, nb_classes, in_channels2):
         super(RPN, self).__init__()
         #rpn part
-        self.conv1 = Conv_1x1(in_channels=in_channels, out_channels=245, strides=1, groups=1)
+        #self.conv1 = Conv_1x1(in_channels=in_channels, out_channels=245, strides=1, groups=1)
+        self.conv1 = nn.Conv2d(245, 245, 1, 1, 0, bias=False) # input channel = 245 ?
+        self.bn1 = nn.BatchNorm2d(245)
+
         self.depthwise_conv5x5 = DepthwiseConv5x5(channels=245, stride=1)
         self.conv_1x1 = Conv_1x1(in_channels=in_channels2, out_channels=265, stride=1, groups=1)
         self.conv2 = nn.Conv2d(num_anchors, (1, 1))
@@ -89,6 +110,7 @@ class RPN(nn.Module):
         self.linear_reg = nn.Linear(4 * (nb_classes - 1))
 
     def forward(self, x):
+        # RPN
         x = self.depthwise_conv5x5(x)
         x = self.Conv_1x1(x)
         x_class = self.sigmoid(self.conv2(x))
@@ -97,17 +119,28 @@ class RPN(nn.Module):
         return [x_class, x_regr]
 
 
-    def classfifier(self, base_layers, input_rois, num_rois, nb_classes=3):
+    def classifier(self, input, input_rois, num_rois, nb_classes=3):
+        """
         x = self.conv_1x1(base_layers)
         x = self.batchnorm(x)
         x = self.sigmoid(x)
         x = x*base_layers
+        """
 
+        # SAM module
+        feature_cem = input[0]      # feature map of CEM: 20x20x5
+        feature_rpn = input[1]      # feature map of RPN
+
+        rpn = self.conv1(rpn)
+        rpn = self.bn1(rpn)
+        rpn = F.sigmoid(rpn)
+        sam_output = feature_cem * rpn
+
+        
+        # PSRoI align
         pooling_regions = 7
         alpha = 5
-
-        # PSRoI align
-        out_roi_pool = PSRoiAlignPooling(pooling_regions, num_rois, alpha)([x, input_rois])
+        out_roi_pool = PSRoiAlignPooling(pooling_regions, num_rois, alpha)([sam_output, input_rois])
 
         # fc
         out = torch.flatten(out_roi_pool)   
