@@ -50,7 +50,7 @@ class InvertedResidual(nn.Module):
                 nn.BatchNorm2d(oup_inc),
                 nn.ReLU(inplace=True),
                 # dw
-                nn.Conv2d(oup_inc, oup_inc, 5, stride, 1, groups=oup_inc, bias=False),
+                nn.Conv2d(oup_inc, oup_inc, 5, stride, padding=2, groups=oup_inc, bias=False),  # padding=2
                 nn.BatchNorm2d(oup_inc),
                 # pw-linear
                 nn.Conv2d(oup_inc, oup_inc, 1, 1, 0, bias=False),
@@ -60,7 +60,7 @@ class InvertedResidual(nn.Module):
         else:   # down sample (2x)
             self.branch1 = nn.Sequential(
                 # dw
-                nn.Conv2d(inp, inp, 5, stride, 1, groups=inp, bias=False),
+                nn.Conv2d(inp, inp, 5, stride, padding=2, groups=inp, bias=False),
                 nn.BatchNorm2d(inp),
                 # pw-linear
                 nn.Conv2d(inp, oup_inc, 1, 1, 0, bias=False),
@@ -74,7 +74,7 @@ class InvertedResidual(nn.Module):
                 nn.BatchNorm2d(oup_inc),
                 nn.ReLU(inplace=True),
                 # dw
-                nn.Conv2d(oup_inc, oup_inc, 5, stride, 1, groups=oup_inc, bias=False),
+                nn.Conv2d(oup_inc, oup_inc, 5, stride, padding=2, groups=oup_inc, bias=False),
                 nn.BatchNorm2d(oup_inc),
                 # pw-linear
                 nn.Conv2d(oup_inc, oup_inc, 1, 1, 0, bias=False),
@@ -185,14 +185,16 @@ class ShuffleNetV2(nn.Module):
         #x = self.features(x)    # stage2, stage3, stage4
 
         x = self.features1(x)       # stage2
-        out1 = self.features2(x)    # stage3
-        x = self.features3(out1)    # stage4
+        x = self.features2(x)    # stage3
+        out_c4 = x
+        x = self.features3(x)    # stage4
 
-        out2 = self.conv5(x)
+        x = self.conv5(x)
+        out_c5 = x
         x = self.globalpool(x)
         x = x.view(-1, self.stage_out_channels[-1])
         x = self.classifier(x)
-        return x, out1, out2
+        return x, out_c4, out_c5
 
 
 class CEM(nn.Module):
@@ -267,6 +269,9 @@ def Snet():
 
         
 if __name__ == '__main__':
+    img = torch.randn(1, 3, 224, 224)
+
     snet = ShuffleNetV2()
-    print(snet)
+    feature, out1, out2 = snet(img)
+    #sprint(snet)
         
