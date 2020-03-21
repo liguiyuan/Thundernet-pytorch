@@ -113,25 +113,10 @@ class ShuffleNetV2(nn.Module):
         self.conv1 = conv_bn(3, input_channel, 2)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        self.features = []
         self.features1 = []
         self.features2 = []
         self.features3 = []
 
-        """
-        # building inverted residual blocks
-        for idxstage in range(len(self.stage_repeats)):
-            numrepeat = self.stage_repeats[idxstage]
-            output_channel = self.stage_out_channels[idxstage+2]
-            for i in range(numrepeat):
-                if i == 0:
-                    # (inp, oup, stride, benchmodel)
-                    self.features.append(InvertedResidual(input_channel, output_channel, 2, 2))
-                else:
-                    self.features.append(InvertedResidual(input_channel, output_channel, 1, 1))
-                input_channel = output_channel
-
-        """
         # stage2
         numrepeat = self.stage_repeats[0]
         output_channel = self.stage_out_channels[2]
@@ -167,7 +152,6 @@ class ShuffleNetV2(nn.Module):
         
 
         # make it nn.Sequential
-        #self.features = nn.Sequential(*self.features)
         self.features1 = nn.Sequential(*self.features1)
         self.features2 = nn.Sequential(*self.features2)
         self.features3 = nn.Sequential(*self.features3)
@@ -181,19 +165,27 @@ class ShuffleNetV2(nn.Module):
 
     def forward(self, x):
         x = self.conv1(x)
+        print('conv1 output: ', x.shape)
         x = self.maxpool(x)
-        #x = self.features(x)    # stage2, stage3, stage4
+        print('maxpool output: ', x.shape)
 
-        x = self.features1(x)       # stage2
+        x = self.features1(x)    # stage2
+        print('stage2 output: ', x.shape)
         x = self.features2(x)    # stage3
+        print('stage3 output: ', x.shape)
         out_c4 = x
         x = self.features3(x)    # stage4
+        print('stage4 output: ', x.shape)
 
         x = self.conv5(x)
+        print('conv5 output: ', x.shape)
         out_c5 = x
         x = self.globalpool(x)
+        print('globalpool output: ', x.shape)
         x = x.view(-1, self.stage_out_channels[-1])
         x = self.classifier(x)
+        print('classifier output: ', x.shape)
+
         return x, out_c4, out_c5
 
 

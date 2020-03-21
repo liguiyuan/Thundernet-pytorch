@@ -5,8 +5,10 @@ from __future__ import absolute_import
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+from Snet49 import ShuffleNetV2
 
-
+"""
 class PSRoiAlignPooling(nn.Module):
     def __init__(self, pool_size, num_rois, alpha, **kwargs):
         super(PSRoiAlignPooling, self).__init__()
@@ -134,6 +136,92 @@ class RPN(nn.Module):
         out_regr = self.linear_reg(out)         # localization
 
         return [out_class, out_regr]
+"""
+#nn.Conv2d(oup_inc, oup_inc, 1, 1, 0, bias=False)
 
+class CEM(nn.Module):
+    def __init__(self):
+        super(CEM, self).__init__()
+        self.conv1 = nn.Conv2d(120, 245, kernel_size=1, stride=1, padding=0)
+
+        self.conv2 = nn.Conv2d(512, 245, kernel_size=1, stride=1, padding=0)
+        #self.conv5_upsample = nn.Upsample((10, 10), (2, 2), 'bilinear')
+
+        self.avg_pool = nn.AvgPool2d(10)
+        self.conv3 = nn.Conv2d(512, 245, kernel_size=1, stride=1, padding=0)
+        # self.broadcast = 
+
+    def forward(self, inputs):
+        # c4
+        c4 = inputs[0]
+        c4_lat = self.conv1(c4)             # output: [245, 20, 20]
+
+        # c5
+        c5 = inputs[1]
+        c5_lat = self.conv2(c5)             # output: [245, 10, 10]
+        # upsample x2
+        c5_lat = F.interpolate(input=c5_lat, size=[20, 20], mode="nearest") # output: [245, 20, 20]
+
+        c_glb = self.avg_pool(c5)           # output: [512, 1, 1]
+        c_glb_lat = self.conv3(c_glb)       # output: [245, 1, 1]
+
+        out = c4_lat + c5_lat + c_glb_lat   # output: [245, 20, 20]
+        return out
+
+class SAM(nn.Module):
+    def __init__(self):
+        super(SAM, self).__init__()
+        self.conv = nn.Conv2d(256, 245, 1, 1, 0, bias=False) # input channel = 245 ?
+        self.bn = nn.BatchNorm2d(245)
+        self.sigmoid = nn.Sigmoid()
         
+    def forward(self, input):
+        cem = input[0]      # feature map of CEM: [245, 20, 20]
+        rpn = input[1]      # feature map of RPN: [256, 20, 20]
 
+        sam = self.conv(rpn)
+        sam = self.bn(sam)
+        sam = self.sigmoid(sam)
+        out = cem * sam     # output: [245, 20, 20]
+
+        return out
+
+class RPN(nn.Module):
+    def __init__(self):
+        super(RPN, self).__init__()
+        # RPN
+        self.dw5x5 = nn.Conv2d(245, 245, kernel_size=5, stride=1, padding=2, groups=245, bias=False)
+        self.bn0 = nn.BatchNorm2d(245)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv1 = nn.Conv2d(245, 256, kernel_size=1, stride=1, padding=0)
+        self.bn1 = nn.BatchNorm2d(256)
+        #self.conv2 = nn.Conv2d(num_anchors, (1, 1))         # class
+        #self.conv3 = nn.Conv2d(num_anchors * 4, (1, 1))     # region
+
+    def forward(self, x):   # x: CEM output feature (20x20x245)
+        # RPN
+        x = self.dw5x5(x)   # output: [245, 20, 20]
+        x = self.bn0(x)
+        x = self.relu(x)
+        x = self.conv1(x)   # output: [256, 20, 20]
+        x = self.bn1(x)
+        x = self.relu(x)
+        return x
+
+
+if __name__ == '__main__':
+    img = torch.randn(1, 3, 320, 320)
+
+    snet = ShuffleNetV2()
+    snet_feature, c4_feature, c5_feature = snet(img)
+
+    cem = CEM()
+    cem_input = [c4_feature, c5_feature] # c4: [120, 20, 20]  c5: [512, 10, 10]
+    cem_output = cem(cem_input)          # output: [245, 20, 20]     
+
+    rpn = RPN()
+    rpn_output = rpn(cem_output)            # output: [256, 20, 20]
+
+    sam = SAM()
+    sam_input = [cem_output, rpn_output]
+    sam_output = sam(sam_input)             # output: [245, 20, 20]
