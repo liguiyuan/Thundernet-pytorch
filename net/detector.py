@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from Snet49 import ShuffleNetV2
+from roi_layers.ps_roi_align import PSRoIAlign
 
 """
 class PSRoiAlignPooling(nn.Module):
@@ -145,11 +146,9 @@ class CEM(nn.Module):
         self.conv1 = nn.Conv2d(120, 245, kernel_size=1, stride=1, padding=0)
 
         self.conv2 = nn.Conv2d(512, 245, kernel_size=1, stride=1, padding=0)
-        #self.conv5_upsample = nn.Upsample((10, 10), (2, 2), 'bilinear')
 
         self.avg_pool = nn.AvgPool2d(10)
         self.conv3 = nn.Conv2d(512, 245, kernel_size=1, stride=1, padding=0)
-        # self.broadcast = 
 
     def forward(self, inputs):
         # c4
@@ -208,8 +207,32 @@ class RPN(nn.Module):
         x = self.relu(x)
         return x
 
+class RCNN_Subnet(nn.Module):
+    def __init__(self, nb_classes):
+        super(RCNN_Subnet, self).__init__()
+        self.linear = nn.Linear(1024)       # fc
 
-if __name__ == '__main__':
+        # classification
+        self.linear_cls = nn.Linear(nb_classes)
+        self.softmax = nn.Softmax() 
+
+        # localization
+        self.linear_reg = nn.Linear(4 * (nb_classes - 1))
+
+    def forward(self, x):
+        out_roi_align = x   # 7x7x5
+        x = torch.flatten(out_roi_align)
+        out = self.linear(x)        # output: [1, 1024]
+
+        out_score = self.linear_cls(out)
+        out_class = self.softmax(out_score)
+
+        out_regressor = self.linear_reg(out)
+
+        return [out_class, out_regressor]              
+        
+
+def detecter():
     img = torch.randn(1, 3, 320, 320)
 
     snet = ShuffleNetV2()
@@ -225,3 +248,20 @@ if __name__ == '__main__':
     sam = SAM()
     sam_input = [cem_output, rpn_output]
     sam_output = sam(sam_input)             # output: [245, 20, 20]
+
+    # PS ROI Align
+    roi_regions = 7
+    # (Tensor[K, 5] or List[Tensor[L, 4]]): the box coordinates in (x1, y1, x2, y2)
+    ps_roi_align = PSRoIAlign(output_size=[roi_regions, roi_regions], spatial_scale=1.0, sampling_ratio=-1)
+    #ps_roi_align_output = ps_roi_align(input=sam_output, rois=input_rois)
+
+    """
+    nb_classes = 80
+    rcnn = RCNN_Subnet(nb_classes)
+    rcnn_output = rcnn(ps_roi_align_output)
+    """
+
+
+if __name__ == '__main__':
+    detecter()
+    

@@ -98,7 +98,7 @@ class InvertedResidual(nn.Module):
         return channel_shuffle(out, 2)
 
 class ShuffleNetV2(nn.Module):
-    def __init__(self, n_class=1000, input_size=224):
+    def __init__(self, n_class=1024, input_size=224):
         super(ShuffleNetV2, self).__init__()
         assert input_size % 32 == 0
 
