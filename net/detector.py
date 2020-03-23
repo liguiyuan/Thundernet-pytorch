@@ -210,23 +210,24 @@ class RPN(nn.Module):
 class RCNN_Subnet(nn.Module):
     def __init__(self, nb_classes):
         super(RCNN_Subnet, self).__init__()
-        self.linear = nn.Linear(1024)       # fc
+        self.linear = nn.Linear(245, 1024)       # fc
 
         # classification
-        self.linear_cls = nn.Linear(nb_classes)
-        self.softmax = nn.Softmax() 
+        self.linear_cls = nn.Linear(1024, nb_classes)
+        self.softmax = nn.Softmax(dim=0) 
 
         # localization
-        self.linear_reg = nn.Linear(4 * (nb_classes - 1))
+        self.linear_reg = nn.Linear(1024, 4 * (nb_classes - 1))
 
-    def forward(self, x):
-        out_roi_align = x   # 7x7x5
-        x = torch.flatten(out_roi_align)
-        out = self.linear(x)        # output: [1, 1024]
+    def forward(self, x):       # x: 7x7x5 
+        x = torch.flatten(x)
+        out = self.linear(x)                    # output: [1, 1024]
 
-        out_score = self.linear_cls(out)
+        # classification
+        out_score = self.linear_cls(out)        # output: [nb_classes]
         out_class = self.softmax(out_score)
 
+        # localization
         out_regressor = self.linear_reg(out)
 
         return [out_class, out_regressor]              
@@ -255,11 +256,13 @@ def detecter():
     ps_roi_align = PSRoIAlign(output_size=[roi_regions, roi_regions], spatial_scale=1.0, sampling_ratio=-1)
     #ps_roi_align_output = ps_roi_align(input=sam_output, rois=input_rois)
 
-    """
+    
+    feature_roi = torch.randn(1, 5, 7, 7)
     nb_classes = 80
     rcnn = RCNN_Subnet(nb_classes)
-    rcnn_output = rcnn(ps_roi_align_output)
-    """
+    #rcnn_output = rcnn(ps_roi_align_output)
+    rcnn_output = rcnn(feature_roi)
+    
 
 
 if __name__ == '__main__':
