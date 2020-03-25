@@ -1,47 +1,11 @@
 import numpy as np
-import six
-import torch
-
-def generage_anchor_base(base_size=16, ratios=[0.5, 1, 2], anchor_scales=[8, 16, 32]):
-    
-    py = base_size / 2.
-    px = base_size / 2.
-
-    anchor_base = np.zeros((len(ratios) * len(anchor_scales), 4),
-                           dtype=np.float32)
-    for i in six.moves.range(len(ratios)):
-        for j in six.moves.range(len(anchor_scales)):
-            h = base_size * anchor_scales[j] * np.sqrt(ratios[i])
-            w = base_size * anchor_scales[j] * np.sqrt(1. / ratios[i])
-
-            index = i * len(anchor_scales) + j
-            anchor_base[index, 0] = py - h / 2.
-            anchor_base[index, 1] = px - w / 2.
-            anchor_base[index, 2] = py + h / 2.
-            anchor_base[index, 3] = px + w / 2.
-    return anchor_base
-    """
-
-
-    scales = torch.as_tensor(anchor_scales, dtype=torch.float32)
-    aspect_ratios = torch.as_tensor(ratios, dtype=torch.float32)
-    h_ratios = torch.sqrt(aspect_ratios)
-    w_ratios = 1 / h_ratios
-
-    ws = (w_ratios[:, None] * scales[None, :]).view(-1)
-    hs = (h_ratios[:, None] * scales[None, :]).view(-1)
-
-    base_anchors = torch.stack([-ws, -hs, ws, hs], dim=1) / 2
-    return base_anchors.round()
-    """
 
 def generate_anchors(base_size=16, ratios=[0.5, 1, 2],
-                     scales=2**np.arange(3, 6)):
+                     scales=2**np.arange(3, 6)): 
     """
     Generate anchor (reference) windows by enumerating aspect ratios X
     scales wrt a reference (0, 0, 15, 15) window.
     """
-
     base_anchor = np.array([1, 1, base_size, base_size]) - 1
     ratio_anchors = _ratio_enum(base_anchor, ratios)
     anchors = np.vstack([_scale_enum(ratio_anchors[i, :], scales)
@@ -97,9 +61,6 @@ def _scale_enum(anchor, scales):
     anchors = _mkanchors(ws, hs, x_ctr, y_ctr)
     return anchors
 
-if __name__ == '__main__':
-    anchor = generage_anchor_base()
-    print(anchor)
-    anchor2 = generate_anchors()
-    print(anchor2)
+#if __name__ == '__main__':
+#    anchor2 = generate_anchors()
 
