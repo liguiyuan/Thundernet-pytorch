@@ -62,5 +62,4 @@ def _scale_enum(anchor, scales):
     return anchors
 
 #if __name__ == '__main__':
-#    anchor2 = generate_anchors()
-
+#    anchor = generate_anchors()
