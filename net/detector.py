@@ -187,7 +187,7 @@ class ThunderNet(GeneralizedRCNN):
                 raise ValueError("num_classes should not be None when box_predictor "
                                  "is not specified")
 
-        out_channels = backbone.out_channels
+        out_channels = backbone.out_channels    # 245
 
         if rpn_anchor_generator is None:
             anchor_sizes = ((32,), (64,), (128,), (256,), (512,))
@@ -217,11 +217,12 @@ class ThunderNet(GeneralizedRCNN):
                 sampling_ratio=2)
 
         if box_head is None:
-            resolution = box_roi_pool.output_size[0]    # size: 7
-            print('box_roi_pool: ', box_roi_pool)
+            resolution = box_roi_pool.output_size[0]    # size: (7, 7)
+            print('box_roi_pool: ', box_roi_pool.output_size)
             representation_size = 1024
-            box_head = TwoMLPHead(
-                out_channels * resolution ** 2,         # 1024 * 7 * 7
+            box_out_channels = 5
+            box_head = RCNNSubNetHead(
+                box_out_channels * resolution ** 2,         # 5 * 7 * 7
                 representation_size)
 
         if box_predictor is None:
@@ -247,7 +248,7 @@ class ThunderNet(GeneralizedRCNN):
 
         super(ThunderNet, self).__init__(backbone, rpn, roi_heads, transform)
 
-class TwoMLPHead(nn.Module):
+class RCNNSubNetHead(nn.Module):
     """
     Standard heads for FPN-based models
     Arguments:
@@ -256,15 +257,13 @@ class TwoMLPHead(nn.Module):
     """
 
     def __init__(self, in_channels, representation_size):
-        super(TwoMLPHead, self).__init__()
-        self.fc6 = nn.Linear(in_channels, representation_size)
-        self.fc7 = nn.Linear(representation_size, representation_size)
+        super(RCNNSubNetHead, self).__init__()
+        self.fc6 = nn.Linear(in_channels, representation_size)  # in_channles: 7*7*5=245  representation_size:1024
 
     def forward(self, x):
         x = x.flatten(start_dim=1)
 
         x = F.relu(self.fc6(x))
-        x = F.relu(self.fc7(x))
 
         return x
   
@@ -294,12 +293,12 @@ class ThunderNetPredictor(nn.Module):
 
 if __name__ == '__main__':
     #detecter()
-
     snet = ShuffleNetV2()
     snet.out_channels = 245
 
 
     thundernet = ThunderNet(snet, num_classes=2)
+
     print('thundernet:')
     print(thundernet)
     
