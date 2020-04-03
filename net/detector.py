@@ -13,10 +13,12 @@ from bbox_tools import generate_anchors
 from torchvision.models.detection.rpn import AnchorGenerator
 from torchvision.models.detection.rpn import RegionProposalNetwork
 from torchvision.models.detection.rpn import RPNHead
-from torchvision.ops import MultiScaleRoIAlign
+#from torchvision.ops import MultiScaleRoIAlign
+from roi_layers.poolers import MultiScaleRoIAlign
 from torchvision.models.detection.roi_heads import RoIHeads
 from torchvision.models.detection.transform import GeneralizedRCNNTransform
 from torchvision.models.detection.generalized_rcnn import GeneralizedRCNN
+
 
 class CEM(nn.Module):
     def __init__(self):
@@ -212,15 +214,15 @@ class ThunderNet(GeneralizedRCNN):
                 sampling_ratio=2)
 
         if box_head is None:
-            resolution = box_roi_pool.output_size[0]
+            resolution = box_roi_pool.output_size[0]    # size: 7
             representation_size = 1024
             box_head = TwoMLPHead(
-                out_channels * resolution ** 2,
+                out_channels * resolution ** 2,         # 1024 * 7 * 7
                 representation_size)
 
         if box_predictor is None:
             representation_size = 1024
-            box_predictor = FastRCNNPredictor(
+            box_predictor = ThunderNetPredictor(
                 representation_size,
                 num_classes)
 
@@ -262,7 +264,7 @@ class TwoMLPHead(nn.Module):
 
         return x
   
-class FastRCNNPredictor(nn.Module):
+class ThunderNetPredictor(nn.Module):
     """
     Standard classification + bounding box regression layers
     for Fast R-CNN.
@@ -271,11 +273,11 @@ class FastRCNNPredictor(nn.Module):
         num_classes (int): number of output classes (including background)
     """
     def __init__(self, in_channels, num_classes):
-        super(FastRCNNPredictor, self).__init__()
+        super(ThunderNetPredictor, self).__init__()
         self.cls_score = nn.Linear(in_channels, num_classes)
         self.bbox_pred = nn.Linear(in_channels, num_classes * 4)
 
-    def forward(self, x):
+    def forward(self, x):       # x: [1024, 1, 1]
         if x.dim() == 4:
             assert list(x.shape[2:]) == [1, 1]
         x = x.flatten(start_dim=1)
