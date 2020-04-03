@@ -36,4 +36,3 @@ def check_roi_boxes_shape(boxes):
     else:
         assert False, 'boxes is expected to be a Tensor[L, 5] or a List[Tensor[K, 4]]'
     return
-    

@@ -10,9 +10,12 @@ from Snet49 import ShuffleNetV2
 from roi_layers.ps_roi_align import PSRoIAlign
 from bbox_tools import generate_anchors
 
-from torchvision.models.detection.rpn import AnchorGenerator
-from torchvision.models.detection.rpn import RegionProposalNetwork
-from torchvision.models.detection.rpn import RPNHead
+#from torchvision.models.detection.rpn import AnchorGenerator
+#from torchvision.models.detection.rpn import RegionProposalNetwork
+#from torchvision.models.detection.rpn import RPNHead
+from rpn import AnchorGenerator
+from rpn import RegionProposalNetwork
+from rpn import RPNHead
 #from torchvision.ops import MultiScaleRoIAlign
 from roi_layers.poolers import MultiScaleRoIAlign
 from torchvision.models.detection.roi_heads import RoIHeads
@@ -208,13 +211,14 @@ class ThunderNet(GeneralizedRCNN):
 
         # box
         if box_roi_pool is None:
-            box_roi_pool = MultiScaleRoIAlign(
+            box_roi_pool = MultiScaleRoIAlign(          # ps roi align
                 featmap_names=['0', '1', '2', '3'],
                 output_size=7,
                 sampling_ratio=2)
 
         if box_head is None:
             resolution = box_roi_pool.output_size[0]    # size: 7
+            print('box_roi_pool: ', box_roi_pool)
             representation_size = 1024
             box_head = TwoMLPHead(
                 out_channels * resolution ** 2,         # 1024 * 7 * 7
@@ -292,9 +296,10 @@ if __name__ == '__main__':
     #detecter()
 
     snet = ShuffleNetV2()
-    snet.out_channels = 1024
+    snet.out_channels = 245
 
 
     thundernet = ThunderNet(snet, num_classes=2)
-    print('thundernet: ', thundernet)
+    print('thundernet:')
+    print(thundernet)
     
