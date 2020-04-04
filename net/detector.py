@@ -20,8 +20,8 @@ from rpn import RPNHead
 from roi_layers.poolers import MultiScaleRoIAlign
 from torchvision.models.detection.roi_heads import RoIHeads
 from torchvision.models.detection.transform import GeneralizedRCNNTransform
-from torchvision.models.detection.generalized_rcnn import GeneralizedRCNN
-
+#from torchvision.models.detection.generalized_rcnn import GeneralizedRCNN
+from generalized_rcnn import GeneralizedRCNN
 
 class CEM(nn.Module):
     def __init__(self):
@@ -33,13 +33,13 @@ class CEM(nn.Module):
         self.avg_pool = nn.AvgPool2d(10)
         self.conv3 = nn.Conv2d(512, 245, kernel_size=1, stride=1, padding=0)
 
-    def forward(self, inputs):
+    def forward(self, c4_feature, c5_feature):
         # c4
-        c4 = inputs[0]
+        c4 = c4_feature
         c4_lat = self.conv1(c4)             # output: [245, 20, 20]
 
         # c5
-        c5 = inputs[1]
+        c5 = c5_feature
         c5_lat = self.conv2(c5)             # output: [245, 10, 10]
         # upsample x2
         c5_lat = F.interpolate(input=c5_lat, size=[20, 20], mode="nearest") # output: [245, 20, 20]
@@ -125,8 +125,8 @@ def detecter():
     snet_feature, c4_feature, c5_feature = snet(img)
 
     cem = CEM()
-    cem_input = [c4_feature, c5_feature] # c4: [120, 20, 20]  c5: [512, 10, 10]
-    cem_output = cem(cem_input)          # output: [245, 20, 20]     
+    #cem_input = [c4_feature, c5_feature] # c4: [120, 20, 20]  c5: [512, 10, 10]
+    cem_output = cem(c4_feature, c5_feature)          # output: [245, 20, 20]     
 
     rpn = RPN()
     rpn_output = rpn(cem_output)            # output: [256, 20, 20]
@@ -164,7 +164,7 @@ class ThunderNet(GeneralizedRCNN):
         rpn_batch_size_per_image=256, rpn_positive_fraction=0.5,
 
         # Box parameters
-        box_roi_pool=None, box_head=None, box_predictor=None,
+        box_ps_roi_align=None, box_head=None, box_predictor=None,
         box_score_thresh=0.05, box_nms_thresh=0.5, box_detections_per_img=100,
         box_fg_iou_thresh=0.5,box_bg_iou_thresh=0.5,
         box_batch_size_per_image=512, box_positive_fraction=0.25,
@@ -177,7 +177,7 @@ class ThunderNet(GeneralizedRCNN):
                 "same for all the levels)")
 
         assert isinstance(rpn_anchor_generator, (AnchorGenerator, type(None)))
-        assert isinstance(box_roi_pool, (MultiScaleRoIAlign, type(None)))
+        assert isinstance(box_ps_roi_align, (MultiScaleRoIAlign, type(None)))
 
         if num_classes is not None:
             if box_predictor is not None:
@@ -189,6 +189,10 @@ class ThunderNet(GeneralizedRCNN):
 
         out_channels = backbone.out_channels    # 245
 
+        # CEM module
+        cem = CEM() 
+
+        # rpn
         if rpn_anchor_generator is None:
             anchor_sizes = ((32,), (64,), (128,), (256,), (512,))
             aspect_ratios = ((0.5, 1.0, 2.0),) * len(anchor_sizes)
@@ -209,16 +213,17 @@ class ThunderNet(GeneralizedRCNN):
             rpn_pre_nms_top_n, rpn_post_nms_top_n, rpn_mns_thresh)
 
 
-        # box
-        if box_roi_pool is None:
-            box_roi_pool = MultiScaleRoIAlign(          # ps roi align
+        # ps roi align
+        if box_ps_roi_align is None:
+            box_ps_roi_align = MultiScaleRoIAlign(          # ps roi align
                 featmap_names=['0', '1', '2', '3'],
                 output_size=7,
                 sampling_ratio=2)
 
+        # R-CNN subnet
         if box_head is None:
-            resolution = box_roi_pool.output_size[0]    # size: (7, 7)
-            print('box_roi_pool: ', box_roi_pool.output_size)
+            resolution = box_ps_roi_align.output_size[0]    # size: (7, 7)
+            print('box_ps_roi_align: ', box_ps_roi_align.output_size)
             representation_size = 1024
             box_out_channels = 5
             box_head = RCNNSubNetHead(
@@ -233,7 +238,7 @@ class ThunderNet(GeneralizedRCNN):
 
         roi_heads = RoIHeads(
             # Box
-            box_roi_pool, box_head, box_predictor,
+            box_ps_roi_align, box_head, box_predictor,
             box_fg_iou_thresh, box_bg_iou_thresh,
             box_batch_size_per_image, box_positive_fraction,
             bbox_reg_weights,
@@ -246,7 +251,7 @@ class ThunderNet(GeneralizedRCNN):
             image_std = [0.229, 0.224, 0.225]
         transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std)
 
-        super(ThunderNet, self).__init__(backbone, rpn, roi_heads, transform)
+        super(ThunderNet, self).__init__(backbone, cem, rpn, roi_heads, transform)
 
 class RCNNSubNetHead(nn.Module):
     """
