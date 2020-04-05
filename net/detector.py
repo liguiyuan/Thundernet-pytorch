@@ -57,9 +57,9 @@ class SAM(nn.Module):
         self.bn = nn.BatchNorm2d(245)
         self.sigmoid = nn.Sigmoid()
         
-    def forward(self, input):
-        cem = input[0]      # feature map of CEM: [245, 20, 20]
-        rpn = input[1]      # feature map of RPN: [256, 20, 20]
+    def forward(self, rpn_feature, cem_feature):
+        cem = cem_feature      # feature map of CEM: [245, 20, 20]
+        rpn = rpn_feature      # feature map of RPN: [256, 20, 20]
 
         sam = self.conv(rpn)
         sam = self.bn(sam)
@@ -192,6 +192,9 @@ class ThunderNet(GeneralizedRCNN):
         # CEM module
         cem = CEM() 
 
+        # SAM module
+        sam = SAM()
+
         # rpn
         if rpn_anchor_generator is None:
             anchor_sizes = ((32,), (64,), (128,), (256,), (512,))
@@ -251,7 +254,7 @@ class ThunderNet(GeneralizedRCNN):
             image_std = [0.229, 0.224, 0.225]
         transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std)
 
-        super(ThunderNet, self).__init__(backbone, cem, rpn, roi_heads, transform)
+        super(ThunderNet, self).__init__(backbone, cem, sam, rpn, roi_heads, transform)
 
 class RCNNSubNetHead(nn.Module):
     """

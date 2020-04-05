@@ -197,13 +197,16 @@ class RPNHead(nn.Module):
         # type: (List[Tensor])
         logits = []
         bbox_reg = []
+        rpn_sam = []
+
         for feature in x:
             x1 = self.dw5x5(feature)
             t1 = F.relu(self.dw5x5(feature))
             t = F.relu(self.conv(t1))
             logits.append(self.cls_logits(t))
             bbox_reg.append(self.bbox_pred(t))
-        return logits, bbox_reg
+            rpn_sam.append(t)
+        return logits, bbox_reg, rpn_sam
 
 
 def permute_and_flatten(layer, N, A, C, H, W):
@@ -464,7 +467,7 @@ class RegionProposalNetwork(torch.nn.Module):
         """
         # RPN uses all feature maps that are available
         features = list(features.values())
-        objectness, pred_bbox_deltas = self.head(features)
+        objectness, pred_bbox_deltas, rpn_sam_input = self.head(features)
         anchors = self.anchor_generator(images, features)
 
         num_images = len(anchors)
@@ -490,4 +493,4 @@ class RegionProposalNetwork(torch.nn.Module):
                 "loss_objectness": loss_objectness,
                 "loss_rpn_box_reg": loss_rpn_box_reg,
             }
-        return boxes, losses
+        return boxes, losses, rpn_sam_input

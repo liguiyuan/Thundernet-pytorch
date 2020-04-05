@@ -23,11 +23,12 @@ class GeneralizedRCNN(nn.Module):
             the model
     """
 
-    def __init__(self, backbone, cem, rpn, roi_heads, transform):
+    def __init__(self, backbone, cem, sam, rpn, roi_heads, transform):
         super(GeneralizedRCNN, self).__init__()
         self.transform = transform
         self.backbone = backbone
         self.cem = cem
+        self.sam = sam
         self.rpn = rpn
         self.roi_heads = roi_heads
         # used only on torchscript mode
@@ -62,14 +63,17 @@ class GeneralizedRCNN(nn.Module):
             original_image_sizes.append((val[0], val[1]))
 
         images, targets = self.transform(images, targets)
-        backbone_features, c4_feature, c5_feature = self.backbone(images.tensors)
+        _, c4_feature, c5_feature = self.backbone(images.tensors)
 
-        cem_output = self.cem(c4_feature, c5_feature)
+        cem_feature = self.cem(c4_feature, c5_feature)
+        print('cem_feature shape: ', cem_feature.shape)
 
-        if isinstance(backbone_features, torch.Tensor):
-            backbone_features = OrderedDict([('0', backbone_features)])
-        proposals, proposal_losses = self.rpn(images, backbone_features, targets)
-        detections, detector_losses = self.roi_heads(backbone_features, proposals, images.image_sizes, targets)
+        if isinstance(cem_feature, torch.Tensor):
+            cem_feature = OrderedDict([('0', cem_feature)])
+        proposals, proposal_losses, rpn_output = self.rpn(images, cem_feature, targets)
+        sam_feature = self.sam(rpn_output, cem_feature)
+
+        detections, detector_losses = self.roi_heads(sam_feature, proposals, images.image_sizes, targets)
         detections = self.transform.postprocess(detections, images.image_sizes, original_image_sizes)
 
         losses = {}
