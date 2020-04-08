@@ -6,22 +6,19 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from Snet49 import ShuffleNetV2
-from roi_layers.ps_roi_align import PSRoIAlign
-from bbox_tools import generate_anchors
 
-#from torchvision.models.detection.rpn import AnchorGenerator
-#from torchvision.models.detection.rpn import RegionProposalNetwork
-#from torchvision.models.detection.rpn import RPNHead
-from rpn import AnchorGenerator
-from rpn import RegionProposalNetwork
-from rpn import RPNHead
-#from torchvision.ops import MultiScaleRoIAlign
-from roi_layers.poolers import MultiScaleRoIAlign
+from net.Snet49 import ShuffleNetV2
+from net.roi_layers.ps_roi_align import PSRoIAlign
+from net.bbox_tools import generate_anchors
+
+from net.rpn import AnchorGenerator
+from net.rpn import RegionProposalNetwork
+from net.rpn import RPNHead
+from net.roi_layers.poolers import MultiScaleRoIAlign
+from net.generalized_rcnn import GeneralizedRCNN
+
 from torchvision.models.detection.roi_heads import RoIHeads
 from torchvision.models.detection.transform import GeneralizedRCNNTransform
-#from torchvision.models.detection.generalized_rcnn import GeneralizedRCNN
-from generalized_rcnn import GeneralizedRCNN
 
 class CEM(nn.Module):
     def __init__(self):
@@ -149,7 +146,7 @@ def detecter():
     rcnn_output = rcnn(feature_roi)
     
 
-class ThunderNet(GeneralizedRCNN):
+class DetectNet(GeneralizedRCNN):
     def __init__(self, backbone, num_classes=None,
         # transform parameters
         min_size=800, max_size=1333,
@@ -226,7 +223,6 @@ class ThunderNet(GeneralizedRCNN):
         # R-CNN subnet
         if box_head is None:
             resolution = box_ps_roi_align.output_size[0]    # size: (7, 7)
-            print('box_ps_roi_align: ', box_ps_roi_align.output_size)
             representation_size = 1024
             box_out_channels = 5
             box_head = RCNNSubNetHead(
@@ -254,7 +250,7 @@ class ThunderNet(GeneralizedRCNN):
             image_std = [0.229, 0.224, 0.225]
         transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std)
 
-        super(ThunderNet, self).__init__(backbone, cem, sam, rpn, roi_heads, transform)
+        super(DetectNet, self).__init__(backbone, cem, sam, rpn, roi_heads, transform)
 
 class RCNNSubNetHead(nn.Module):
     """
@@ -298,15 +294,15 @@ class ThunderNetPredictor(nn.Module):
         return scores, bbox_deltas
         
 
-
-if __name__ == '__main__':
-    #detecter()
+def ThunderNet():
     snet = ShuffleNetV2()
     snet.out_channels = 245
+    thundernet = DetectNet(snet, num_classes=2)
+
+    return thundernet
 
 
-    thundernet = ThunderNet(snet, num_classes=2)
-
-    print('thundernet:')
-    print(thundernet)
+#if __name__ == '__main__':
+#    thundernet = ThunderNet()
+#    print('thundernet: ', thundernet)
     
