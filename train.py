@@ -77,22 +77,20 @@ def main(args=None):
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones, gamma=0.1, last_epoch=-1)
 
     for epoch in range(args.start_epoch, 2):
-        train(train_loader, model)
+        train(train_loader, model, epoch, scheduler)
 
         test(test_loader, model)
 
         scheduler.step()
 
 
-def train(train_loader, model):
+def train(train_loader, model, epoch, scheduler):
     model.train()
     epoch_loss = []
 
-    for iter, data in enumerate(train_loader):  
-        if use_cuda:
-            cls_loss, reg_loss = mode(data['img'].cuda().float(), data['annot'].cuda())
-        else:
-            cls_loss, reg_loss = mode(data['img'].float(), data['annot'])
+    for i, data in enumerate(train_loader):  
+        
+        cls_loss, reg_loss = mode(data['img'].cuda().float(), data['annot'].cuda())
 
         cls_loss = cls_loss.mean()
         reg_loss = reg_loss.mean()
@@ -106,10 +104,34 @@ def train(train_loader, model):
         epoch_loss.append(float(loss))
         total_loss = np.mean(epoch_loss)
 
+        if (i+1)%50 == 0:
+            learning_rate = scheduler.get_lr()[0]   # get learning rate
+            print('classification loss: {:1.5f} | regression loss: {:1.5f} | total loss: {:1.5f} | lr: {}'.format(
+            cls_loss, reg_loss, np.mean(loss), learning_rate))
 
 
 def test(test_loader, model):
-    pass
+    model.eval()
+
+    loss_regression_ls = []
+    loss_classification_ls = []
+    for i, data in enumerate(test_loader):
+        with torch.no_grad():
+            cls_loss, reg_loss = model(data['img'].cuda().float(), data['annot'].cuda())
+
+            cls_loss = cls_loss.mean()
+            reg_loss = reg_loss.mean()
+
+            loss_classification_ls.append(float(cls_loss))
+            loss_regression_ls.append(float(reg_loss))
+
+    cls_loss = np.mean(loss_classification_ls)
+    reg_loss = np.mean(loss_regression_ls)
+    loss = cls_loss + reg_loss
+
+    print('classification loss: {:1.5f} | regression loss: {:1.5f} | total loss: {:1.5f}'.format(
+        cls_loss, reg_loss, np.mean(loss)))
+
 
 if __name__ == '__main__':
     args = parse_args()
