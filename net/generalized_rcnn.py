@@ -63,7 +63,7 @@ class GeneralizedRCNN(nn.Module):
             original_image_sizes.append((val[0], val[1]))
 
         images, targets = self.transform(images, targets)
-        _, c4_feature, c5_feature = self.backbone(images.tensors)
+        _, c4_feature, c5_feature = self.backbone(images)
 
         cem_feature = self.cem(c4_feature, c5_feature)
         print('cem_feature shape: ', cem_feature.shape)

@@ -18,7 +18,8 @@ from net.roi_layers.poolers import MultiScaleRoIAlign
 from net.generalized_rcnn import GeneralizedRCNN
 
 from torchvision.models.detection.roi_heads import RoIHeads
-from torchvision.models.detection.transform import GeneralizedRCNNTransform
+#from torchvision.models.detection.transform import GeneralizedRCNNTransform
+from net.transform import GeneralizedRCNNTransform
 
 class CEM(nn.Module):
     def __init__(self):
