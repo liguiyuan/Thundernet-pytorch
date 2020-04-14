@@ -66,6 +66,7 @@ class SAM(nn.Module):
 
         return out
 
+"""
 class RPN(nn.Module):
     def __init__(self):
         super(RPN, self).__init__()
@@ -145,7 +146,7 @@ def detecter():
     rcnn = RCNN_Subnet(nb_classes)
     #rcnn_output = rcnn(ps_roi_align_output)
     rcnn_output = rcnn(feature_roi)
-    
+"""    
 
 class DetectNet(GeneralizedRCNN):
     def __init__(self, backbone, num_classes=None,
@@ -298,7 +299,7 @@ class ThunderNetPredictor(nn.Module):
 def ThunderNet():
     snet = ShuffleNetV2()
     snet.out_channels = 245
-    thundernet = DetectNet(snet, num_classes=2)
+    thundernet = DetectNet(snet, num_classes=80)
 
     return thundernet
 

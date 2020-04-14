@@ -155,8 +155,13 @@ class AnchorGenerator(nn.Module):
 
     def forward(self, image_list, feature_maps):
         # type: (ImageList, List[Tensor])
+        #print('image_list: ', len(image_list))
+
         grid_sizes = list([feature_map.shape[-2:] for feature_map in feature_maps])
-        image_size = image_list.tensors.shape[-2:]
+        print('grid_sizes: ', grid_sizes)
+        #image_size = image_list.tensors.shape[-2:]
+        image_size = image_list.tensors[0].shape[-2:]
+        print('image_size: ', image_size)
         dtype, device = feature_maps[0].dtype, feature_maps[0].device
         strides = [[torch.tensor(image_size[0] / g[0], dtype=torch.int64, device=device),
                     torch.tensor(image_size[1] / g[1], dtype=torch.int64, device=device)] for g in grid_sizes]
@@ -171,6 +176,9 @@ class AnchorGenerator(nn.Module):
         anchors = [torch.cat(anchors_per_image) for anchors_per_image in anchors]
         # Clear the cache in case that memory leaks.
         self._cache.clear()
+        print('anchors len: ', len(anchors))
+        print('anchors1 shape: ', anchors[1].shape)
+
         return anchors
 
 
@@ -326,7 +334,11 @@ class RegionProposalNetwork(torch.nn.Module):
         labels = []
         matched_gt_boxes = []
         for anchors_per_image, targets_per_image in zip(anchors, targets):
-            gt_boxes = targets_per_image["boxes"]
+            print('targets_per_image shape: ', targets_per_image.shape)
+
+            #gt_boxes = targets_per_image["boxes"]
+            gt_boxes = targets_per_image[:, 0:4]
+            #print('gt_boxes: ', gt_boxes)
 
             if gt_boxes.numel() == 0:
                 # Background image (negative example)
@@ -362,7 +374,9 @@ class RegionProposalNetwork(torch.nn.Module):
         r = []
         offset = 0
         for ob in objectness.split(num_anchors_per_level, 1):
-            if torchvision._is_tracing():
+            is_tracing = True
+            #if torchvision._is_tracing():
+            if is_tracing:
                 num_anchors, pre_nms_top_n = _onnx_get_num_anchors_and_pre_nms_top_n(ob, self.pre_nms_top_n())
             else:
                 num_anchors = ob.shape[1]

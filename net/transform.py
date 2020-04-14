@@ -31,9 +31,14 @@ class GeneralizedRCNNTransform(nn.Module):
 
     def forward(self, images, targets=None):
         # type: (List[Tensor], Optional[List[Dict[str, Tensor]]])
+
+        print('images shape: ', images.shape)
+        print('images type: ', type(images))
+
         images = [img for img in images]
         for i in range(len(images)):
             image = images[i]
+            print('image shape: ', image.shape)
             target_index = targets[i] if targets is not None else None
 
             if image.dim() != 3:
@@ -52,7 +57,15 @@ class GeneralizedRCNNTransform(nn.Module):
             assert len(image_size) == 2
             image_sizes_list.append((image_size[0], image_size[1]))
 
+        print('image_sizes_list: ', image_sizes_list)
+        print('image1 len: ', images[1].shape)
+        print('targets shape: ', targets.shape)
+        #print('targets: ', targets)
+
         image_list = ImageList(images, image_sizes_list)
+        print('image_list tensors len: ', len(image_list.tensors))
+        #print('images len: ', images[1].shape[-2:])
+        #print(image_list.tensors.shape[-2:])
         return image_list, targets
 
     def normalize(self, image):
