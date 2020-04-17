@@ -61,7 +61,7 @@ def main(args=None):
     
     num_gpus = 1
     train_params = {
-        "batch_size": 32,
+        "batch_size": 4,
         "shuffle": True,
         "drop_last": True,
         "collate_fn": collater,
@@ -119,7 +119,6 @@ def train(train_loader, model, epoch, scheduler):
         #cls_loss, reg_loss = mode(data['img'].cuda().float(), data['annot'].cuda())
         input_data = data['img'].cuda().float()
         input_labels = data['annot'].cuda()
-
 
         print('input_data shape: ', input_data.shape)
 

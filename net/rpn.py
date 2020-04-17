@@ -205,15 +205,17 @@ class RPNHead(nn.Module):
         # type: (List[Tensor])
         logits = []
         bbox_reg = []
-        rpn_sam = []
+        #rpn_sam = []
 
         for feature in x:
+            print('feature shape: ', feature.shape)
             x1 = self.dw5x5(feature)
             t1 = F.relu(self.dw5x5(feature))
             t = F.relu(self.conv(t1))
             logits.append(self.cls_logits(t))
             bbox_reg.append(self.bbox_pred(t))
-            rpn_sam.append(t)
+            #rpn_sam.append(t)
+            rpn_sam = t
         return logits, bbox_reg, rpn_sam
 
 

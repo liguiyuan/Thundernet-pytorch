@@ -66,17 +66,23 @@ class GeneralizedRCNN(nn.Module):
         images, targets = self.transform(images, targets)
 
         cem_feature = self.cem(c4_feature, c5_feature)
+        cem_feature_output = cem_feature
         print('cem_feature shape: ', cem_feature.shape)
 
         if isinstance(cem_feature, torch.Tensor):
             cem_feature = OrderedDict([('0', cem_feature)])
         proposals, proposal_losses, rpn_output = self.rpn(images, cem_feature, targets)
 
-        rpn_output = rpn_output[0]
-        print('rpn_output shape: ', rpn_output[0].shape)
-        print('cem_feature type: ', type(cem_feature))
-        sam_feature = self.sam(rpn_output, cem_feature)
+        #rpn_output = torch.Tensor(rpn_output)
+        print('rpn_output shape: ', rpn_output.shape)
+        print('cem_feature_output shape: ', cem_feature_output.shape)
+        sam_feature = self.sam(rpn_output, cem_feature_output)
 
+        print('sam_feature type: ', type(sam_feature))
+        print('proposals type: ', type(proposals))
+        print('images.image_sizes type: ', type(images.image_sizes))
+        print('targets type:{} , len: {}'.format(type(targets), len(targets)))
+        print('targets[0] shape: ', targets[0].shape)
         detections, detector_losses = self.roi_heads(sam_feature, proposals, images.image_sizes, targets)
         detections = self.transform.postprocess(detections, images.image_sizes, original_image_sizes)
 
