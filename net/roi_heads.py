@@ -731,31 +731,23 @@ class RoIHeads(torch.nn.Module):
             image_shapes (List[Tuple[H, W]])
             targets (List[Dict])
         """
+
+        print('targets type:', type(targets))
         if targets is not None:
             for t in targets:
-                
-                annot = {}
-                annot["boxes"] = t[:, 0:4]
-                annot["labels"] = t[:, 4]
-                annot["labels"] = annot["labels"].type(torch.LongTensor)
-                print('annot boxes: ', annot["boxes"])
-                print('annot labels: ', annot["labels"])
-                
+                if t["labels"].dtype != torch.int64:
+                    t["labels"] = t["labels"].type(torch.LongTensor)
+
                 # TODO: https://github.com/pytorch/pytorch/issues/26731
                 floating_point_types = (torch.float, torch.double, torch.half)
-                #assert t["boxes"].dtype in floating_point_types, 'target boxes must of float type'
-                #assert t["labels"].dtype == torch.int64, 'target labels must of int64 type'
-                assert annot["boxes"].dtype in floating_point_types, 'target boxes must of float type'
-                assert annot["labels"].dtype == torch.int64, 'target labels must of int64 type'
+                assert t["boxes"].dtype in floating_point_types, 'target boxes must of float type'
+                assert t["labels"].dtype == torch.int64, 'target labels must of int64 type'
+                
                 if self.has_keypoint():
                     assert t["keypoints"].dtype == torch.float32, 'target keypoints must of float type'
 
         if self.training:
             proposals, matched_idxs, labels, regression_targets = self.select_training_samples(proposals, targets)
-        else:
-            labels = None
-            regression_targets = None
-            matched_idxs = None
 
         box_features = self.box_roi_pool(features, proposals, image_shapes)
         box_features = self.box_head(box_features)
@@ -771,17 +763,6 @@ class RoIHeads(torch.nn.Module):
                 "loss_classifier": loss_classifier,
                 "loss_box_reg": loss_box_reg
             }
-        else:
-            boxes, scores, labels = self.postprocess_detections(class_logits, box_regression, proposals, image_shapes)
-            num_images = len(boxes)
-            for i in range(num_images):
-                result.append(
-                    {
-                        "boxes": boxes[i],
-                        "labels": labels[i],
-                        "scores": scores[i],
-                    }
-                )
 
         if self.has_mask():
             mask_proposals = [p["boxes"] for p in result]
@@ -795,9 +776,7 @@ class RoIHeads(torch.nn.Module):
                     pos = torch.nonzero(labels[img_id] > 0).squeeze(1)
                     mask_proposals.append(proposals[img_id][pos])
                     pos_matched_idxs.append(matched_idxs[img_id][pos])
-            else:
-                pos_matched_idxs = None
-
+          
             if self.mask_roi_pool is not None:
                 mask_features = self.mask_roi_pool(features, mask_proposals, image_shapes)
                 mask_features = self.mask_head(mask_features)
@@ -820,11 +799,6 @@ class RoIHeads(torch.nn.Module):
                 loss_mask = {
                     "loss_mask": rcnn_loss_mask
                 }
-            else:
-                labels = [r["labels"] for r in result]
-                masks_probs = maskrcnn_inference(mask_logits, labels)
-                for mask_prob, r in zip(masks_probs, result):
-                    r["masks"] = mask_prob
 
             losses.update(loss_mask)
 
@@ -843,8 +817,6 @@ class RoIHeads(torch.nn.Module):
                     pos = torch.nonzero(labels[img_id] > 0).squeeze(1)
                     keypoint_proposals.append(proposals[img_id][pos])
                     pos_matched_idxs.append(matched_idxs[img_id][pos])
-            else:
-                pos_matched_idxs = None
 
             keypoint_features = self.keypoint_roi_pool(features, keypoint_proposals, image_shapes)
             keypoint_features = self.keypoint_head(keypoint_features)
@@ -862,14 +834,6 @@ class RoIHeads(torch.nn.Module):
                 loss_keypoint = {
                     "loss_keypoint": rcnn_loss_keypoint
                 }
-            else:
-                assert keypoint_logits is not None
-                assert keypoint_proposals is not None
-
-                keypoints_probs, kp_scores = keypointrcnn_inference(keypoint_logits, keypoint_proposals)
-                for keypoint_prob, kps, r in zip(keypoints_probs, kp_scores, result):
-                    r["keypoints"] = keypoint_prob
-                    r["keypoints_scores"] = kps
 
             losses.update(loss_keypoint)
 

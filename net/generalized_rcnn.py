@@ -42,7 +42,7 @@ class GeneralizedRCNN(nn.Module):
 
         return detections
 
-    def forward(self, images, targets=None):
+    def forward(self, images, targets2=None):
         # type: (List[Tensor], Optional[List[Dict[str, Tensor]]])
         """
         Arguments:
@@ -54,6 +54,14 @@ class GeneralizedRCNN(nn.Module):
                 During testing, it returns list[BoxList] contains additional fields
                 like `scores`, `labels` and `mask` (for Mask R-CNN models).
         """
+
+        targets = []
+        t2 = {}
+        for t in targets2:
+            t2["boxes"] = t[:, 0:4]
+            t2["labels"] = t[:, 4]
+            targets.append(t2)
+
         if self.training and targets is None:
             raise ValueError("In training mode, targets should be passed")
         original_image_sizes = torch.jit.annotate(List[Tuple[int, int]], [])
@@ -82,7 +90,7 @@ class GeneralizedRCNN(nn.Module):
         print('proposals type: ', type(proposals))
         print('images.image_sizes type: ', type(images.image_sizes))
         print('targets type:{} , len: {}'.format(type(targets), len(targets)))
-        print('targets[0] shape: ', targets[0].shape)
+        
         detections, detector_losses = self.roi_heads(sam_feature, proposals, images.image_sizes, targets)
         detections = self.transform.postprocess(detections, images.image_sizes, original_image_sizes)
 

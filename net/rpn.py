@@ -336,10 +336,11 @@ class RegionProposalNetwork(torch.nn.Module):
         labels = []
         matched_gt_boxes = []
         for anchors_per_image, targets_per_image in zip(anchors, targets):
-            print('targets_per_image shape: ', targets_per_image.shape)
+            #print('targets_per_image shape: ', targets_per_image.shape)
 
-            #gt_boxes = targets_per_image["boxes"]
-            gt_boxes = targets_per_image[:, 0:4]
+            gt_boxes = targets_per_image["boxes"]
+            #gt_boxes = targets_per_image[:, 0:4]
+            print('gt_boxes shape: ', gt_boxes.shape)
             #print('gt_boxes: ', gt_boxes)
 
             if gt_boxes.numel() == 0:
