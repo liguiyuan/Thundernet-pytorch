@@ -59,7 +59,7 @@ class GeneralizedRCNNTransform(nn.Module):
 
         print('image_sizes_list: ', image_sizes_list)
         print('image1 len: ', images[1].shape)
-        print('targets shape: ', targets.shape)
+        print('targets len: ', len(targets))
         #print('targets: ', targets)
 
         image_list = ImageList(images, image_sizes_list)

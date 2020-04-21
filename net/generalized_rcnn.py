@@ -79,6 +79,7 @@ class GeneralizedRCNN(nn.Module):
 
         if isinstance(cem_feature, torch.Tensor):
             cem_feature = OrderedDict([('0', cem_feature)])
+        print('cem_feature type: ', type(cem_feature))
         proposals, proposal_losses, rpn_output = self.rpn(images, cem_feature, targets)
 
         #rpn_output = torch.Tensor(rpn_output)
@@ -91,6 +92,10 @@ class GeneralizedRCNN(nn.Module):
         print('images.image_sizes type: ', type(images.image_sizes))
         print('targets type:{} , len: {}'.format(type(targets), len(targets)))
         
+        if isinstance(sam_feature, torch.Tensor):
+            sam_feature = OrderedDict([('0', sam_feature)])
+        print('sam_feature type: ', type(sam_feature))
+
         detections, detector_losses = self.roi_heads(sam_feature, proposals, images.image_sizes, targets)
         detections = self.transform.postprocess(detections, images.image_sizes, original_image_sizes)
 
