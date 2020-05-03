@@ -658,7 +658,7 @@ class RoIHeads(torch.nn.Module):
         for img_id in range(num_images):
             img_sampled_inds = sampled_inds[img_id]
             proposals[img_id] = proposals[img_id][img_sampled_inds]
-            labels[img_id] = labels[img_id][img_sampled_inds]
+            labels[img_id] = labels[img_id][img_sampled_inds].cuda()
             matched_idxs[img_id] = matched_idxs[img_id][img_sampled_inds]
 
             gt_boxes_in_image = gt_boxes[img_id]
