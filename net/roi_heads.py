@@ -732,7 +732,7 @@ class RoIHeads(torch.nn.Module):
             targets (List[Dict])
         """
 
-        print('targets type:', type(targets))
+        #print('targets type:', type(targets))
         if targets is not None:
             for t in targets:
                 if t["labels"].dtype != torch.int64:

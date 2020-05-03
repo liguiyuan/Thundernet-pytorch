@@ -61,7 +61,7 @@ def main(args=None):
     
     num_gpus = 1
     train_params = {
-        "batch_size": 4,
+        "batch_size": 32,
         "shuffle": True,
         "drop_last": True,
         "collate_fn": collater,
@@ -102,31 +102,34 @@ def main(args=None):
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones, gamma=0.1, last_epoch=-1)
 
     for epoch in range(args.start_epoch, 2):
-        train(train_loader, model, epoch, scheduler)
+        train(train_loader, model, optimizer, epoch, scheduler)
         #test(test_loader, model)
 
         scheduler.step()
     
 
 
-def train(train_loader, model, epoch, scheduler):
+def train(train_loader, model, optimizer, epoch, scheduler):
     model.train()
     epoch_loss = []
 
     progress_bar = tqdm(train_loader)
     for i, data in enumerate(progress_bar):  
         
-        #cls_loss, reg_loss = mode(data['img'].cuda().float(), data['annot'].cuda())
         input_data = data['img'].cuda().float()
         input_labels = data['annot'].cuda()
+        #print('input_data shape: ', input_data.shape)
+        #print('input_labels shape: ', input_labels.shape)
 
-        print('input_data shape: ', input_data.shape)
-
-        print('input_labels shape: ', input_labels.shape)
-
-        #loss_dict = model(data['img'].cuda().float(), data['annot'].cuda())
         loss_dict = model(input_data, input_labels)
-        #losses = sum(loss for loss in loss_dict.values())
+        losses = sum(loss for loss in loss_dict.values())
+
+        optimizer.zero_grad()
+        losses.backward()
+        optimizer.step()
+
+        if i % 5 == 0:
+            print('losses: ', losses.item())
 
         """
         cls_loss = cls_loss.mean()

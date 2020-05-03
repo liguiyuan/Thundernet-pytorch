@@ -158,10 +158,10 @@ class AnchorGenerator(nn.Module):
         #print('image_list: ', len(image_list))
 
         grid_sizes = list([feature_map.shape[-2:] for feature_map in feature_maps])
-        print('grid_sizes: ', grid_sizes)
+        #print('grid_sizes: ', grid_sizes)
         #image_size = image_list.tensors.shape[-2:]
         image_size = image_list.tensors[0].shape[-2:]
-        print('image_size: ', image_size)
+        #print('image_size: ', image_size)
         dtype, device = feature_maps[0].dtype, feature_maps[0].device
         strides = [[torch.tensor(image_size[0] / g[0], dtype=torch.int64, device=device),
                     torch.tensor(image_size[1] / g[1], dtype=torch.int64, device=device)] for g in grid_sizes]
@@ -176,8 +176,8 @@ class AnchorGenerator(nn.Module):
         anchors = [torch.cat(anchors_per_image) for anchors_per_image in anchors]
         # Clear the cache in case that memory leaks.
         self._cache.clear()
-        print('anchors len: ', len(anchors))
-        print('anchors1 shape: ', anchors[1].shape)
+        #print('anchors len: ', len(anchors))
+        #print('anchors1 shape: ', anchors[1].shape)
 
         return anchors
 
@@ -208,7 +208,7 @@ class RPNHead(nn.Module):
         #rpn_sam = []
 
         for feature in x:
-            print('feature shape: ', feature.shape)
+            #print('feature shape: ', feature.shape)
             x1 = self.dw5x5(feature)
             t1 = F.relu(self.dw5x5(feature))
             t = F.relu(self.conv(t1))
@@ -340,7 +340,7 @@ class RegionProposalNetwork(torch.nn.Module):
 
             gt_boxes = targets_per_image["boxes"]
             #gt_boxes = targets_per_image[:, 0:4]
-            print('gt_boxes shape: ', gt_boxes.shape)
+            #print('gt_boxes shape: ', gt_boxes.shape)
             #print('gt_boxes: ', gt_boxes)
 
             if gt_boxes.numel() == 0:

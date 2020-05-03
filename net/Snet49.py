@@ -165,26 +165,26 @@ class ShuffleNetV2(nn.Module):
 
     def forward(self, x):
         x = self.conv1(x)
-        print('conv1 output: ', x.shape)
+        #print('conv1 output: ', x.shape)
         x = self.maxpool(x)
-        print('maxpool output: ', x.shape)
+        #print('maxpool output: ', x.shape)
 
         x = self.features1(x)    # stage2
-        print('stage2 output: ', x.shape)
+        #print('stage2 output: ', x.shape)
         x = self.features2(x)    # stage3
-        print('stage3 output: ', x.shape)
+        #print('stage3 output: ', x.shape)
         out_c4 = x
         x = self.features3(x)    # stage4
-        print('stage4 output: ', x.shape)
+        #print('stage4 output: ', x.shape)
 
         x = self.conv5(x)
-        print('conv5 output: ', x.shape)
+        #print('conv5 output: ', x.shape)
         out_c5 = x
         x = self.globalpool(x)
-        print('globalpool output: ', x.shape)
+        #print('globalpool output: ', x.shape)
         x = x.view(-1, self.stage_out_channels[-1])
         x = self.classifier(x)
-        print('classifier output: ', x.shape)
+        #print('classifier output: ', x.shape)
 
         return x, out_c4, out_c5
 

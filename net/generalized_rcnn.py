@@ -75,26 +75,26 @@ class GeneralizedRCNN(nn.Module):
 
         cem_feature = self.cem(c4_feature, c5_feature)
         cem_feature_output = cem_feature
-        print('cem_feature shape: ', cem_feature.shape)
+        #print('cem_feature shape: ', cem_feature.shape)
 
         if isinstance(cem_feature, torch.Tensor):
             cem_feature = OrderedDict([('0', cem_feature)])
-        print('cem_feature type: ', type(cem_feature))
+        #print('cem_feature type: ', type(cem_feature))
         proposals, proposal_losses, rpn_output = self.rpn(images, cem_feature, targets)
 
         #rpn_output = torch.Tensor(rpn_output)
-        print('rpn_output shape: ', rpn_output.shape)
-        print('cem_feature_output shape: ', cem_feature_output.shape)
+        #print('rpn_output shape: ', rpn_output.shape)
+        #print('cem_feature_output shape: ', cem_feature_output.shape)
         sam_feature = self.sam(rpn_output, cem_feature_output)
 
-        print('sam_feature type: ', type(sam_feature))
-        print('proposals type: ', type(proposals))
-        print('images.image_sizes type: ', type(images.image_sizes))
-        print('targets type:{} , len: {}'.format(type(targets), len(targets)))
+        #print('sam_feature type: ', type(sam_feature))
+        #print('proposals type: ', type(proposals))
+        #print('images.image_sizes type: ', type(images.image_sizes))
+        #print('targets type:{} , len: {}'.format(type(targets), len(targets)))
         
         if isinstance(sam_feature, torch.Tensor):
             sam_feature = OrderedDict([('0', sam_feature)])
-        print('sam_feature type: ', type(sam_feature))
+        #print('sam_feature type: ', type(sam_feature))
 
         detections, detector_losses = self.roi_heads(sam_feature, proposals, images.image_sizes, targets)
         detections = self.transform.postprocess(detections, images.image_sizes, original_image_sizes)
