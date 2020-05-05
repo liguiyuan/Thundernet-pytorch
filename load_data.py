@@ -24,7 +24,6 @@ class CocoDataset(Dataset):
         self.load_classes()
 
     def load_classes(self):
-
         # load class names (name -> label)
         categories = self.coco.loadCats(self.coco.getCatIds())
         categories.sort(key=lambda x: x['id'])
@@ -51,8 +50,6 @@ class CocoDataset(Dataset):
         sample = {'img': img, 'annot': annot}
         if self.transform:
             sample = self.transform(sample)
-        
-        
 
         return sample
 
@@ -60,7 +57,6 @@ class CocoDataset(Dataset):
         image_info = self.coco.loadImgs(self.image_ids[image_index])[0]
         path = os.path.join(self.root_dir, 'images', self.set_name, image_info['file_name'])
         #img = Image.open(path).convert('RGB')
-
         # if len(img.size) == 2:
         #     img = skimage.color.gray2rgb(img)
         img = cv2.imread(path)
@@ -80,7 +76,6 @@ class CocoDataset(Dataset):
         # parse annotations
         coco_annotations = self.coco.loadAnns(annotations_ids)
         for idx, a in enumerate(coco_annotations):
-
             # some annotations have basically no width / height, skip them
             if a['bbox'][2] < 1 or a['bbox'][3] < 1:
                 continue
@@ -113,11 +108,9 @@ def collater(data):
     scales = [s['scale'] for s in data]
 
     imgs = torch.from_numpy(np.stack(imgs, axis=0))
-
     max_num_annots = max(annot.shape[0] for annot in annots)
 
     if max_num_annots > 0:
-
         annot_padded = torch.ones((len(annots), max_num_annots, 5)) * -1
 
         if max_num_annots > 0:
@@ -134,7 +127,6 @@ def collater(data):
 
 class Resizer(object):
     """Convert ndarrays in sample to Tensors."""
-
     def __call__(self, sample, common_size=320):
         image, annots = sample['img'], sample['annot']
         height, width, _ = image.shape

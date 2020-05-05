@@ -8,9 +8,10 @@ import numpy as np
 import argparse
 import torch
 
+import torch.optim as optim
 from torchvision import transforms
 from torch.utils.data import DataLoader
-import torch.optim as optim
+from tensorboardX import SummaryWriter
 
 from net.detector import ThunderNet
 from load_data import CocoDataset, Resizer, Normalizer, Augmenter, collater
@@ -35,7 +36,6 @@ def parse_args():
     parser.add_argument('--saved_path', help='save path', type=str, default='./checkpoint')
     parser.add_argument('--lr', help='learning rate', type=float, default=1e-4)
 
-
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
@@ -43,10 +43,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-
-
 def main(args=None):
-    
     transform_train = transforms.Compose([
         Normalizer(),
         Augmenter(),
@@ -58,7 +55,6 @@ def main(args=None):
         Resizer()
     ])
 
-    
     num_gpus = 1
     train_params = {
         "batch_size": 32,
@@ -75,7 +71,6 @@ def main(args=None):
         "collate_fn": collater,
         "num_workers": 4
     }
-    
 
     train_set = CocoDataset(root_dir=args.data_path, set_name='train2017', transform=transform_train)
     val_set = CocoDataset(root_dir=args.data_path, set_name='val2017', transform=transform_test)
@@ -83,8 +78,11 @@ def main(args=None):
     train_loader = DataLoader(dataset=train_set, **train_params)
     test_loader = DataLoader(dataset=val_set, **test_params)
 
+    num_iter = len(train_loader)
+
     model = ThunderNet()
 
+    save_path = args.saved_path
     if not os.path.isdir(args.saved_path):
         os.makedirs(args.saved_path)
 
@@ -101,15 +99,27 @@ def main(args=None):
     milestones = [500, 800, 1200, 1500]
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones, gamma=0.1, last_epoch=-1)
 
+    writer = SummaryWriter(log_dir='./checkpoint/summary')
+
     for epoch in range(args.start_epoch, 2):
-        train(train_loader, model, optimizer, epoch, scheduler)
-        #test(test_loader, model)
+        train_loss = train(train_loader, model, optimizer, args, num_iter, epoch, scheduler)
+        test(test_loader, model)
 
+        writer.add_scalar('train loss', train_loss)
         scheduler.step()
-    
+
+        save_name = '{}/thundernet_{}.pth.tar'.format(save_path, epoch)
+        save_checkpoint({
+            'epoch': epoch,
+            'state_dict': model.state_dict(),
+            'optimizer': optimizer.state_dict(),
+            }, filename=save_name)
+
+    writer.export_scalars_to_json('./checkpoint/summary/' + 'pretrain' + 'all_scalars.json')
+    writer.close()
 
 
-def train(train_loader, model, optimizer, epoch, scheduler):
+def train(train_loader, model, optimizer, args, num_iter, epoch, scheduler):
     model.train()
     epoch_loss = []
 
@@ -118,8 +128,6 @@ def train(train_loader, model, optimizer, epoch, scheduler):
         
         input_data = data['img'].cuda().float()
         input_labels = data['annot'].cuda()
-        #print('input_data shape: ', input_data.shape)
-        #print('input_labels shape: ', input_labels.shape)
 
         loss_dict = model(input_data, input_labels)
         losses = sum(loss for loss in loss_dict.values())
@@ -128,50 +136,38 @@ def train(train_loader, model, optimizer, epoch, scheduler):
         losses.backward()
         optimizer.step()
 
-        if i % 5 == 0:
-            print('losses: ', losses.item())
-
-        """
-        cls_loss = cls_loss.mean()
-        reg_loss = reg_loss.mean()
-        loss = cls_loss + reg_loss
-
-        optimizer.zero_grad()
-        loss.backward()
-
-        optimizer.step()
-
-        epoch_loss.append(float(loss))
-        total_loss = np.mean(epoch_loss)
-
-        if (i+1)%50 == 0:
+        epoch_loss.append(float(losses))
+        if (i+1)%5 == 0:
             learning_rate = scheduler.get_lr()[0]   # get learning rate
-            print('classification loss: {:1.5f} | regression loss: {:1.5f} | total loss: {:1.5f} | lr: {}'.format(
-            cls_loss, reg_loss, np.mean(loss), learning_rate))
-        """
+            print('Epoch: {}/{}. Iter: {}/{} loss: {:.5f}'.format(
+                epoch, args.epochs, (i+1), num_iter, losses.item()))
+
+    train_loss = np.mean(epoch_loss)
+    return train_loss
 
 def test(test_loader, model):
     model.eval()
+    total_loss = []
 
-    loss_regression_ls = []
-    loss_classification_ls = []
-    for i, data in enumerate(test_loader):
+    progress_bar = tqdm(test_loader)
+    for i, data in enumerate(progress_bar):
         with torch.no_grad():
-            cls_loss, reg_loss = model(data['img'].cuda().float(), data['annot'].cuda())
+            input_data = data['img'].cuda().float()
+            input_labels = data['annot'].cuda()
 
-            cls_loss = cls_loss.mean()
-            reg_loss = reg_loss.mean()
+            loss_dict = model(input_data, input_labels)
+            losses = sum(loss for loss in loss_dict.values())
 
-            loss_classification_ls.append(float(cls_loss))
-            loss_regression_ls.append(float(reg_loss))
+            total_loss.append(losses.item())
+            #cls_loss = cls_loss.mean()
+            #reg_loss = reg_loss.mean()
 
-    cls_loss = np.mean(loss_classification_ls)
-    reg_loss = np.mean(loss_regression_ls)
-    loss = cls_loss + reg_loss
+    sum_loss = np.mean(total_loss)
+    print('test total loss: {:1.5f}'.format(sum_loss))
 
-    print('classification loss: {:1.5f} | regression loss: {:1.5f} | total loss: {:1.5f}'.format(
-        cls_loss, reg_loss, np.mean(loss)))
-
+def save_checkpoint(state, filename):
+    print('save model: {}\n'.format(filename))
+    torch.save(state, filename)
 
 if __name__ == '__main__':
     args = parse_args()
