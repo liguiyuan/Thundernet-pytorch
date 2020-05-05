@@ -13,7 +13,7 @@ from torchvision import transforms
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 
-from net.detector import ThunderNet
+from src.detector import ThunderNet
 from load_data import CocoDataset, Resizer, Normalizer, Augmenter, collater
 from tqdm.autonotebook import tqdm
 
