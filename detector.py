@@ -18,7 +18,6 @@ from src.rpn import AnchorGenerator
 from src.rpn import RegionProposalNetwork
 from src.rpn import RPNHead
 from src.roi_layers.poolers import MultiScaleRoIAlign
-from src.generalized_rcnn import GeneralizedRCNN
 from src.roi_heads import RoIHeads
 from src.transform import GeneralizedRCNNTransform
 
@@ -125,16 +124,6 @@ class DetectNet(nn.Module):
             image_std = [0.229, 0.224, 0.225]
         self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std)
 
-        # used only on torchscript mode
-        self._has_warned = False
-
-    @torch.jit.unused
-    def eager_outputs(self, losses, detections):
-        # type: (Dict[str, Tensor], List[Dict[str, Tensor]]) -> Tuple[Dict[str, Tensor], List[Dict[str, Tensor]]]
-        if self.training:
-            return losses
-
-        return detections
 
     def forward(self, images, targets2=None):
         # type: (List[Tensor], Optional[List[Dict[str, Tensor]]])
@@ -164,31 +153,26 @@ class DetectNet(nn.Module):
             assert len(val) == 2
             original_image_sizes.append((val[0], val[1]))
 
+
+        # backbone
         _, c4_feature, c5_feature = self.backbone(images)
         images, targets = self.transform(images, targets)
 
+        # cem
         cem_feature = self.cem(c4_feature, c5_feature)
         cem_feature_output = cem_feature
-        #print('cem_feature shape: ', cem_feature.shape)
 
         if isinstance(cem_feature, torch.Tensor):
             cem_feature = OrderedDict([('0', cem_feature)])
-        #print('cem_feature type: ', type(cem_feature))
+        
+        # rpn
         proposals, proposal_losses, rpn_output = self.rpn(images, cem_feature, targets)
 
-        #rpn_output = torch.Tensor(rpn_output)
-        #print('rpn_output shape: ', rpn_output.shape)
-        #print('cem_feature_output shape: ', cem_feature_output.shape)
+        # sam
         sam_feature = self.sam(rpn_output, cem_feature_output)
-
-        #print('sam_feature type: ', type(sam_feature))
-        #print('proposals type: ', type(proposals))
-        #print('images.image_sizes type: ', type(images.image_sizes))
-        #print('targets type:{} , len: {}'.format(type(targets), len(targets)))
         
         if isinstance(sam_feature, torch.Tensor):
             sam_feature = OrderedDict([('0', sam_feature)])
-        #print('sam_feature type: ', type(sam_feature))
 
         detections, detector_losses = self.roi_heads(sam_feature, proposals, images.image_sizes, targets)
         detections = self.transform.postprocess(detections, images.image_sizes, original_image_sizes)
@@ -196,16 +180,8 @@ class DetectNet(nn.Module):
         losses = {}
         losses.update(detector_losses)
         losses.update(proposal_losses)
-
-        if torch.jit.is_scripting():
-            if not self._has_warned:
-                warnings.warn("RCNN always returns a (Losses, Detections) tuple in scripting")
-                self._has_warned = True
-            return (losses, detections)
-        else:
-            return self.eager_outputs(losses, detections)
-
-
+        #print('detector_losses:{}, proposal_losses:{} '.format(detector_losses, proposal_losses))
+        return losses
 
 def ThunderNet():
     snet = SNet49()

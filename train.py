@@ -57,11 +57,11 @@ def main(args=None):
 
     num_gpus = 1
     train_params = {
-        "batch_size": 32,
+        "batch_size": 64,
         "shuffle": True,
         "drop_last": True,
         "collate_fn": collater,
-        "num_workers": 4
+        "num_workers": 8
     }
 
     test_params = {
@@ -69,7 +69,7 @@ def main(args=None):
         "shuffle": False,
         "drop_last": False,
         "collate_fn": collater,
-        "num_workers": 4
+        "num_workers": 8
     }
 
     train_set = CocoDataset(root_dir=args.data_path, set_name='train2017', transform=transform_train)
@@ -103,7 +103,7 @@ def main(args=None):
 
     for epoch in range(args.start_epoch, 2):
         train_loss = train(train_loader, model, optimizer, args, num_iter, epoch, scheduler)
-        test(test_loader, model)
+        #test(test_loader, model)
 
         writer.add_scalar('train loss', train_loss)
         scheduler.step()
@@ -137,7 +137,7 @@ def train(train_loader, model, optimizer, args, num_iter, epoch, scheduler):
         optimizer.step()
 
         epoch_loss.append(float(losses))
-        if (i+1)%5 == 0:
+        if (i+1)%50 == 0:
             learning_rate = scheduler.get_lr()[0]   # get learning rate
             print('Epoch: {}/{}. Iter: {}/{} loss: {:.5f}'.format(
                 epoch, args.epochs, (i+1), num_iter, losses.item()))
@@ -157,6 +157,7 @@ def test(test_loader, model):
 
             loss_dict = model(input_data, input_labels)
             losses = sum(loss for loss in loss_dict.values())
+            print('losses: ', losses)
 
             total_loss.append(losses.item())
             #cls_loss = cls_loss.mean()
