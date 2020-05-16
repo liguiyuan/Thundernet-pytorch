@@ -6,28 +6,25 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor
+from torch.jit.annotations import Tuple, List, Dict, Optional
 
 from thundernet.snet import SNet49
 from thundernet.module import CEM, SAM, RCNNSubNetHead, ThunderNetPredictor
 
 from src.roi_layers.ps_roi_align import PSRoIAlign
 from src.bbox_tools import generate_anchors
-
 from src.rpn import AnchorGenerator
 from src.rpn import RegionProposalNetwork
 from src.rpn import RPNHead
 from src.roi_layers.poolers import MultiScaleRoIAlign
 from src.generalized_rcnn import GeneralizedRCNN
-
-#from torchvision.models.detection.roi_heads import RoIHeads
 from src.roi_heads import RoIHeads
-#from torchvision.models.detection.transform import GeneralizedRCNNTransform
 from src.transform import GeneralizedRCNNTransform
 
 from collections import OrderedDict
 import warnings
-from torch.jit.annotations import Tuple, List, Dict, Optional
-from torch import Tensor
+
 
 class DetectNet(nn.Module):
     def __init__(self, backbone, num_classes=None,
@@ -112,12 +109,9 @@ class DetectNet(nn.Module):
 
         if box_predictor is None:
             representation_size = 1024
-            box_predictor = ThunderNetPredictor(
-                representation_size,
-                num_classes)
+            box_predictor = ThunderNetPredictor(representation_size, num_classes)
 
         self.roi_heads = RoIHeads(
-            # Box
             box_ps_roi_align, box_head, box_predictor,
             box_fg_iou_thresh, box_bg_iou_thresh,
             box_batch_size_per_image, box_positive_fraction,
