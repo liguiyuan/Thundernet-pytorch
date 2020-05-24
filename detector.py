@@ -177,11 +177,7 @@ class DetectNet(nn.Module):
         detections, detector_losses = self.roi_heads(sam_feature, proposals, images.image_sizes, targets)
         detections = self.transform.postprocess(detections, images.image_sizes, original_image_sizes)
 
-        losses = {}
-        losses.update(detector_losses)
-        losses.update(proposal_losses)
-        #print('detector_losses:{}, proposal_losses:{} '.format(detector_losses, proposal_losses))
-        return losses
+        return detector_losses, proposal_losses
 
 def ThunderNet():
     snet = SNet49()

@@ -103,7 +103,7 @@ def main(args=None):
 
     for epoch in range(args.start_epoch, 2):
         train_loss = train(train_loader, model, optimizer, args, num_iter, epoch, scheduler)
-        #test(test_loader, model)
+        test(test_loader, model)
 
         writer.add_scalar('train loss', train_loss)
         scheduler.step()
@@ -123,48 +123,64 @@ def train(train_loader, model, optimizer, args, num_iter, epoch, scheduler):
     model.train()
     epoch_loss = []
 
+    losses = {}
     progress_bar = tqdm(train_loader)
     for i, data in enumerate(progress_bar):  
         
         input_data = data['img'].cuda().float()
         input_labels = data['annot'].cuda()
 
-        loss_dict = model(input_data, input_labels)
-        losses = sum(loss for loss in loss_dict.values())
+        detector_losses, proposal_losses = model(input_data, input_labels)
+
+        losses.update(detector_losses)
+        losses.update(proposal_losses)
+        #print(detector_losses)
+        #print(proposal_losses)
+
+        total_loss = sum(loss for loss in losses.values())
 
         optimizer.zero_grad()
-        losses.backward()
+        total_loss.backward()
         optimizer.step()
 
-        epoch_loss.append(float(losses))
-        if (i+1)%50 == 0:
+        epoch_loss.append(total_loss.item())
+        if (i+1)%5 == 0:
             learning_rate = scheduler.get_lr()[0]   # get learning rate
-            print('Epoch: {}/{}. Iter: {}/{} loss: {:.5f}'.format(
-                epoch, args.epochs, (i+1), num_iter, losses.item()))
+            detector_loss = sum(loss for loss in detector_losses.values())
+            proposal_loss = sum(loss for loss in proposal_losses.values())
+
+            print('Epoch: {}/{} | Iter: {}/{} | total loss: {:.3f} | det loss: {:.3f} | proposal loss: {:.3f}'.format(
+                epoch, args.epochs, (i+1), num_iter, total_loss.item(), 
+                detector_loss.item(), proposal_loss.item()))
 
     train_loss = np.mean(epoch_loss)
     return train_loss
 
 def test(test_loader, model):
     model.eval()
-    total_loss = []
-
+    all_loss = []
+    losses = {}
     progress_bar = tqdm(test_loader)
     for i, data in enumerate(progress_bar):
         with torch.no_grad():
             input_data = data['img'].cuda().float()
             input_labels = data['annot'].cuda()
 
-            loss_dict = model(input_data, input_labels)
-            losses = sum(loss for loss in loss_dict.values())
-            print('losses: ', losses)
+            detector_losses, proposal_losses = model(input_data, input_labels)
+            losses.update(detector_losses)
+            losses.update(proposal_losses)
 
-            total_loss.append(losses.item())
+            #print(detector_losses)
+            #print(proposal_losses)
+            total_loss = sum(loss for loss in losses.values())
+            #print('total loss: ', total_loss)
+
+            all_loss.append(total_loss.item())
             #cls_loss = cls_loss.mean()
             #reg_loss = reg_loss.mean()
 
-    sum_loss = np.mean(total_loss)
-    print('test total loss: {:1.5f}'.format(sum_loss))
+    mean_loss = np.mean(all_loss)
+    print('test loss: {:1.5f}'.format(mean_loss))
 
 def save_checkpoint(state, filename):
     print('save model: {}\n'.format(filename))
