@@ -145,7 +145,7 @@ def train(train_loader, model, optimizer, args, num_iter, epoch, scheduler):
 
         epoch_loss.append(total_loss.item())
         if (i+1)%5 == 0:
-            learning_rate = scheduler.get_lr()[0]   # get learning rate
+            learning_rate = scheduler.get_last_lr()[0]   # get learning rate
             detector_loss = sum(loss for loss in detector_losses.values())
             proposal_loss = sum(loss for loss in proposal_losses.values())
 
