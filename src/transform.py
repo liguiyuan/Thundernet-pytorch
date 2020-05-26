@@ -36,19 +36,6 @@ class GeneralizedRCNNTransform(nn.Module):
         #print('images type: ', type(images))
 
         images = [img for img in images]
-        for i in range(len(images)):
-            image = images[i]
-            #print('image shape: ', image.shape)
-            target_index = targets[i] if targets is not None else None
-
-            if image.dim() != 3:
-                raise ValueError("images is expected to be a list of 3d tensors "
-                                 "of shape [C, H, W], got {}".format(image.shape))
-            #image = self.normalize(image)
-            #image, target_index = self.resize(image, target_index)
-            images[i] = image
-            if targets is not None and target_index is not None:
-                targets[i] = target_index
 
         image_sizes = [img.shape[-2:] for img in images]
         #images = self.batch_images(images)
@@ -57,22 +44,11 @@ class GeneralizedRCNNTransform(nn.Module):
             assert len(image_size) == 2
             image_sizes_list.append((image_size[0], image_size[1]))
 
-        #print('image_sizes_list: ', image_sizes_list)
-        #print('image1 len: ', images[1].shape)
-        #print('targets len: ', len(targets))
-        #print('targets: ', targets)
-
         image_list = ImageList(images, image_sizes_list)
         #print('image_list tensors len: ', len(image_list.tensors))
         #print('images len: ', images[1].shape[-2:])
         #print(image_list.tensors.shape[-2:])
         return image_list, targets
-
-    def normalize(self, image):
-        dtype, device = image.dtype, image.device
-        mean = torch.as_tensor(self.image_mean, dtype=dtype, device=device)
-        std = torch.as_tensor(self.image_std, dtype=dtype, device=device)
-        return (image - mean[:, None, None]) / std[:, None, None]
 
     def torch_choice(self, l):
         # type: (List[int])
@@ -84,41 +60,6 @@ class GeneralizedRCNNTransform(nn.Module):
         index = int(torch.empty(1).uniform_(0., float(len(l))).item())
         return l[index]
 
-    def resize(self, image, target):
-        # type: (Tensor, Optional[Dict[str, Tensor]])
-        h, w = image.shape[-2:]
-        im_shape = torch.tensor(image.shape[-2:])
-        min_size = float(torch.min(im_shape))
-        max_size = float(torch.max(im_shape))
-        if self.training:
-            size = float(self.torch_choice(self.min_size))
-        else:
-            # FIXME assume for now that testing uses the largest scale
-            size = float(self.min_size[-1])
-        scale_factor = size / min_size
-        if max_size * scale_factor > self.max_size:
-            scale_factor = self.max_size / max_size
-        image = torch.nn.functional.interpolate(
-            image[None], scale_factor=scale_factor, mode='bilinear',
-            align_corners=False)[0]
-
-        if target is None:
-            return image, target
-
-        bbox = target["boxes"]
-        bbox = resize_boxes(bbox, (h, w), image.shape[-2:])
-        target["boxes"] = bbox
-
-        if "masks" in target:
-            mask = target["masks"]
-            mask = misc_nn_ops.interpolate(mask[None].float(), scale_factor=scale_factor)[0].byte()
-            target["masks"] = mask
-
-        if "keypoints" in target:
-            keypoints = target["keypoints"]
-            keypoints = resize_keypoints(keypoints, (h, w), image.shape[-2:])
-            target["keypoints"] = keypoints
-        return image, target
 
     # _onnx_batch_images() is an implementation of
     # batch_images() that is supported by ONNX tracing.

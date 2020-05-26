@@ -120,7 +120,7 @@ def collater(data):
     else:
         annot_padded = torch.ones((len(annots), 1, 5)) * -1
 
-    imgs = imgs.permute(0, 3, 1, 2)
+    imgs = imgs.permute(0, 3, 1, 2)     # (N, H, W, C) -> (N, C, H, W)
 
     return {'img': imgs, 'annot': annot_padded, 'scale': scales}
 
@@ -139,12 +139,12 @@ class Resizer(object):
             resized_height = int(height * scale)
             resized_width = common_size
 
-        image = cv2.resize(image, (resized_width, resized_height))
+        image = cv2.resize(image, (resized_width, resized_height))      # image resize
 
         new_image = np.zeros((common_size, common_size, 3))
         new_image[0:resized_height, 0:resized_width] = image
 
-        annots[:, :4] *= scale
+        annots[:, :4] *= scale      # resize boxes, [x1, y1, x2, y2]
 
         return {'img': torch.from_numpy(new_image), 'annot': torch.from_numpy(annots), 'scale': scale}
 
@@ -154,7 +154,7 @@ class Augmenter(object):
     def __call__(self, sample, flip_x=0.5):
         if np.random.rand() < flip_x:
             image, annots = sample['img'], sample['annot']
-            image = image[:, ::-1, :]
+            image = image[:, ::-1, :]   # flip
 
             rows, cols, channels = image.shape
 
