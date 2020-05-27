@@ -27,9 +27,6 @@ import warnings
 
 class DetectNet(nn.Module):
     def __init__(self, backbone, num_classes=None,
-        # transform parameters
-        min_size=800, max_size=1333,
-        image_mean=None, image_std=None,
         # RPN parameters
         rpn_anchor_generator=None, rpn_head=None,
         rpn_pre_nms_top_n_train=2000, rpn_pre_nms_top_n_test=100,
@@ -117,12 +114,7 @@ class DetectNet(nn.Module):
             bbox_reg_weights,
             box_score_thresh, box_nms_thresh, box_detections_per_img)
 
-
-        if image_mean is None:
-            image_mean = [0.485, 0.456, 0.406]
-        if image_std is None:
-            image_std = [0.229, 0.224, 0.225]
-        self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std)
+        self.transform = GeneralizedRCNNTransform()
 
 
     def forward(self, images, targets2=None):
@@ -151,7 +143,7 @@ class DetectNet(nn.Module):
         for img in images:
             val = img.shape[-2:]
             assert len(val) == 2
-            original_image_sizes.append((val[0], val[1]))
+            original_image_sizes.append((val[0], val[1]))   # (h, w)
 
 
         # backbone
