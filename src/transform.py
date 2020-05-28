@@ -23,8 +23,15 @@ class GeneralizedRCNNTransform(nn.Module):
     def __init__(self):
         super(GeneralizedRCNNTransform, self).__init__()
 
-    def forward(self, images, targets=None):
+    def forward(self, images, targets2=None):
         # type: (List[Tensor], Optional[List[Dict[str, Tensor]]])
+
+        targets = []
+        t2 = {}
+        for t in targets2:
+            t2["boxes"] = t[:, 0:4]
+            t2["labels"] = t[:, 4]
+            targets.append(t2)
 
         images = [img for img in images]
 

@@ -117,7 +117,7 @@ class DetectNet(nn.Module):
         self.transform = GeneralizedRCNNTransform()
 
 
-    def forward(self, images, targets2=None):
+    def forward(self, images, targets=None):
         # type: (List[Tensor], Optional[List[Dict[str, Tensor]]])
         """
         Arguments:
@@ -130,28 +130,18 @@ class DetectNet(nn.Module):
                 like `scores`, `labels` and `mask` (for Mask R-CNN models).
         """
 
-        targets = []
-        t2 = {}
-        for t in targets2:
-            t2["boxes"] = t[:, 0:4]
-            t2["labels"] = t[:, 4]
-            targets.append(t2)
-
-        if self.training and targets is None:
-            raise ValueError("In training mode, targets should be passed")
         original_image_sizes = torch.jit.annotate(List[Tuple[int, int]], [])
         for img in images:
             val = img.shape[-2:]
             assert len(val) == 2
             original_image_sizes.append((val[0], val[1]))   # (h, w)
 
-
         # backbone
         _, c4_feature, c5_feature = self.backbone(images)
-        images, targets = self.transform(images, targets)
+        images, targets = self.transform(images, targets)   # transform to list
 
         # cem
-        cem_feature = self.cem(c4_feature, c5_feature)
+        cem_feature = self.cem(c4_feature, c5_feature)      # [20, 20, 245]
         cem_feature_output = cem_feature
 
         if isinstance(cem_feature, torch.Tensor):
@@ -167,7 +157,7 @@ class DetectNet(nn.Module):
             sam_feature = OrderedDict([('0', sam_feature)])
 
         detections, detector_losses = self.roi_heads(sam_feature, proposals, images.image_sizes, targets)
-        detections = self.transform.postprocess(detections, images.image_sizes, original_image_sizes)
+        #detections = self.transform.postprocess(detections, images.image_sizes, original_image_sizes)      # testing predict
 
         return detector_losses, proposal_losses
 
