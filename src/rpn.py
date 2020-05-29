@@ -155,13 +155,11 @@ class AnchorGenerator(nn.Module):
 
     def forward(self, image_list, feature_maps):
         # type: (ImageList, List[Tensor])
-        #print('image_list: ', len(image_list))
 
-        grid_sizes = list([feature_map.shape[-2:] for feature_map in feature_maps])
-        #print('grid_sizes: ', grid_sizes)
+        grid_sizes = list([feature_map.shape[-2:] for feature_map in feature_maps])     # grid_sizes: [torch.Size([20, 20])]
         #image_size = image_list.tensors.shape[-2:]
-        image_size = image_list.tensors[0].shape[-2:]
-        #print('image_size: ', image_size)
+        image_size = image_list.tensors[0].shape[-2:]      # image_size: torch.Size([320, 320])
+        
         dtype, device = feature_maps[0].dtype, feature_maps[0].device
         strides = [[torch.tensor(image_size[0] / g[0], dtype=torch.int64, device=device),
                     torch.tensor(image_size[1] / g[1], dtype=torch.int64, device=device)] for g in grid_sizes]
@@ -173,11 +171,11 @@ class AnchorGenerator(nn.Module):
             for anchors_per_feature_map in anchors_over_all_feature_maps:
                 anchors_in_image.append(anchors_per_feature_map)
             anchors.append(anchors_in_image)
+
+        # per image generate 10000 regions
         anchors = [torch.cat(anchors_per_image) for anchors_per_image in anchors]
         # Clear the cache in case that memory leaks.
         self._cache.clear()
-        #print('anchors len: ', len(anchors))
-        #print('anchors1 shape: ', anchors[1].shape)
 
         return anchors
 
@@ -194,7 +192,7 @@ class RPNHead(nn.Module):
         super(RPNHead, self).__init__()
         self.dw5x5 = nn.Conv2d(in_channels, in_channels, kernel_size=5, stride=1, padding=2, groups=in_channels)
         self.conv = nn.Conv2d(in_channels, rpn_channel, kernel_size=1, stride=1, padding=0)
-        self.cls_logits = nn.Conv2d(rpn_channel, num_anchors, kernel_size=1, stride=1)
+        self.cls_logits = nn.Conv2d(rpn_channel, num_anchors, kernel_size=1, stride=1)      # output channel: num_anchors*2 ? why?
         self.bbox_pred = nn.Conv2d(rpn_channel, num_anchors * 4, kernel_size=1, stride=1)
 
         for l in self.children():
