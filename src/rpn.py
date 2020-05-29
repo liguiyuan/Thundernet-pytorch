@@ -208,14 +208,12 @@ class RPNHead(nn.Module):
         #rpn_sam = []
 
         for feature in x:
-            #print('feature shape: ', feature.shape)
-            x1 = self.dw5x5(feature)
-            t1 = F.relu(self.dw5x5(feature))
-            t = F.relu(self.conv(t1))
-            logits.append(self.cls_logits(t))
-            bbox_reg.append(self.bbox_pred(t))
-            #rpn_sam.append(t)
-            rpn_sam = t
+            f1 = F.relu(self.dw5x5(feature))
+            f1 = F.relu(self.conv(f1))           # share feature: f1
+            logits.append(self.cls_logits(f1))
+            bbox_reg.append(self.bbox_pred(f1))
+            #rpn_sam.append(f1)
+            rpn_sam = f1
         return logits, bbox_reg, rpn_sam
 
 

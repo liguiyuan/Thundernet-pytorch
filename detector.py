@@ -28,7 +28,6 @@ import warnings
 class DetectNet(nn.Module):
     def __init__(self, backbone, num_classes=None,
         # RPN parameters
-        rpn_anchor_generator=None, rpn_head=None,
         rpn_pre_nms_top_n_train=2000, rpn_pre_nms_top_n_test=100,
         rpn_post_nms_top_n_train=2000, rpn_post_nms_top_n_test=1000,
 
@@ -50,7 +49,6 @@ class DetectNet(nn.Module):
                 "specifying the number of output channels (assumed to be the "
                 "same for all the levels)")
 
-        assert isinstance(rpn_anchor_generator, (AnchorGenerator, type(None)))
         assert isinstance(box_ps_roi_align, (MultiScaleRoIAlign, type(None)))
 
         if num_classes is not None:
@@ -69,13 +67,11 @@ class DetectNet(nn.Module):
         self.sam = SAM()     # SAM module
 
         # rpn
-        if rpn_anchor_generator is None:
-            anchor_sizes = ((32,), (64,), (128,), (256,), (512,))
-            aspect_ratios = ((0.5, 1.0, 2.0),) * len(anchor_sizes)
-            rpn_anchor_generator = AnchorGenerator(sizes=anchor_sizes, aspect_ratios=aspect_ratios)
-        
-        if rpn_head is None:
-            rpn_head = RPNHead(out_channels, rpn_anchor_generator.num_anchors_per_location()[0])
+        anchor_sizes = ((32, 64, 128, 256, 512),)           # anchor sizes
+        aspect_ratios = ((0.5, 0.75, 1.0, 1.33, 2.0),)      # aspect ratios, paper pyperparameters
+        rpn_anchor_generator = AnchorGenerator(sizes=anchor_sizes, aspect_ratios=aspect_ratios)
+
+        rpn_head = RPNHead(out_channels, rpn_anchor_generator.num_anchors_per_location()[0])
 
         rpn_pre_nms_top_n = dict(training=rpn_pre_nms_top_n_train, testing=rpn_pre_nms_top_n_test)
         rpn_post_nms_top_n = dict(training=rpn_post_nms_top_n_train, testing=rpn_post_nms_top_n_test)
