@@ -26,6 +26,11 @@ import warnings
 
 
 class DetectNet(nn.Module):
+    """
+    if your backbone returns a Tensor, featmap_names is expected to be ['0'].
+    More generally, the backbone should return an OrderedDict[Tensor],
+    and in featmap_names you can choose which feature maps to use.
+    """
     def __init__(self, backbone, num_classes=None,
         # RPN parameters
         rpn_pre_nms_top_n_train=2000, rpn_pre_nms_top_n_test=100,

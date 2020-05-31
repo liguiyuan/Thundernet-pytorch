@@ -173,7 +173,7 @@ class AnchorGenerator(nn.Module):
             anchors.append(anchors_in_image)
 
         # per image generate 10000 regions
-        anchors = [torch.cat(anchors_per_image) for anchors_per_image in anchors]
+        anchors = [torch.cat(anchors_per_image) for anchors_per_image in anchors]   # type: list[Tensor]
         # Clear the cache in case that memory leaks.
         self._cache.clear()
 
@@ -234,24 +234,24 @@ def concat_box_prediction_layers(box_cls, box_regression):
     for box_cls_per_level, box_regression_per_level in zip(
         box_cls, box_regression
     ):
-        N, AxC, H, W = box_cls_per_level.shape
-        Ax4 = box_regression_per_level.shape[1]
-        A = Ax4 // 4
-        C = AxC // A
-        box_cls_per_level = permute_and_flatten(
+        N, AxC, H, W = box_cls_per_level.shape          # [N, 25x1, 20, 20]
+        Ax4 = box_regression_per_level.shape[1]         # 25x4 = 100
+        A = Ax4 // 4                                    # A = 25
+        C = AxC // A                                    # C = 1
+        box_cls_per_level = permute_and_flatten(        # shape: [N, 10000, 1]
             box_cls_per_level, N, A, C, H, W
         )
         box_cls_flattened.append(box_cls_per_level)
 
-        box_regression_per_level = permute_and_flatten(
+        box_regression_per_level = permute_and_flatten( # shape: [N, 10000, 4]
             box_regression_per_level, N, A, 4, H, W
         )
         box_regression_flattened.append(box_regression_per_level)
     # concatenate on the first dimension (representing the feature levels), to
     # take into account the way the labels were generated (with all feature maps
     # being concatenated as well)
-    box_cls = torch.cat(box_cls_flattened, dim=1).flatten(0, -2)
-    box_regression = torch.cat(box_regression_flattened, dim=1).reshape(-1, 4)
+    box_cls = torch.cat(box_cls_flattened, dim=1).flatten(0, -2)                # shape: [N x 10000, 1]
+    box_regression = torch.cat(box_regression_flattened, dim=1).reshape(-1, 4)  # shape: [N x 10000, 4]
     return box_cls, box_regression
 
 
@@ -332,13 +332,8 @@ class RegionProposalNetwork(torch.nn.Module):
         labels = []
         matched_gt_boxes = []
         for anchors_per_image, targets_per_image in zip(anchors, targets):
-            #print('targets_per_image shape: ', targets_per_image.shape)
 
             gt_boxes = targets_per_image["boxes"]
-            #gt_boxes = targets_per_image[:, 0:4]
-            #print('gt_boxes shape: ', gt_boxes.shape)
-            #print('gt_boxes: ', gt_boxes)
-
             if gt_boxes.numel() == 0:
                 # Background image (negative example)
                 device = anchors_per_image.device
@@ -391,24 +386,24 @@ class RegionProposalNetwork(torch.nn.Module):
         device = proposals.device
         # do not backprop throught objectness
         objectness = objectness.detach()
-        objectness = objectness.reshape(num_images, -1)
+        objectness = objectness.reshape(num_images, -1)     # shape: [64, 10000]
 
         levels = [
             torch.full((n,), idx, dtype=torch.int64, device=device)
             for idx, n in enumerate(num_anchors_per_level)
         ]
         levels = torch.cat(levels, 0)
-        levels = levels.reshape(1, -1).expand_as(objectness)
+        levels = levels.reshape(1, -1).expand_as(objectness)    # shape: [64, 10000]
 
         # select top_n boxes independently per level before applying nms
-        top_n_idx = self._get_top_n_idx(objectness, num_anchors_per_level)
+        top_n_idx = self._get_top_n_idx(objectness, num_anchors_per_level)  # shape: [64, 2000]
 
         image_range = torch.arange(num_images, device=device)
         batch_idx = image_range[:, None]
 
-        objectness = objectness[batch_idx, top_n_idx]
+        objectness = objectness[batch_idx, top_n_idx]       # shape: [64, 2000]
         levels = levels[batch_idx, top_n_idx]
-        proposals = proposals[batch_idx, top_n_idx]
+        proposals = proposals[batch_idx, top_n_idx]         # shape: [64, 2000, 4]
 
         final_boxes = []
         final_scores = []
@@ -483,16 +478,16 @@ class RegionProposalNetwork(torch.nn.Module):
         objectness, pred_bbox_deltas, rpn_sam_input = self.head(features)
         anchors = self.anchor_generator(images, features)
 
-        num_images = len(anchors)
-        num_anchors_per_level_shape_tensors = [o[0].shape for o in objectness]
-        num_anchors_per_level = [s[0] * s[1] * s[2] for s in num_anchors_per_level_shape_tensors]
+        num_images = len(anchors)       # batch size
+        num_anchors_per_level_shape_tensors = [o[0].shape for o in objectness]  # [25, 20, 20]
+        num_anchors_per_level = [s[0] * s[1] * s[2] for s in num_anchors_per_level_shape_tensors] # 25x20x20=10000
         objectness, pred_bbox_deltas = \
             concat_box_prediction_layers(objectness, pred_bbox_deltas)
         # apply pred_bbox_deltas to anchors to obtain the decoded proposals
         # note that we detach the deltas because Faster R-CNN do not backprop through
         # the proposals
-        proposals = self.box_coder.decode(pred_bbox_deltas.detach(), anchors)
-        proposals = proposals.view(num_images, -1, 4)
+        proposals = self.box_coder.decode(pred_bbox_deltas.detach(), anchors)   # shape: [640000, 1, 4]
+        proposals = proposals.view(num_images, -1, 4)       # shape: [64, 10000, 4]
         boxes, scores = self.filter_proposals(proposals, objectness, images.image_sizes, num_anchors_per_level)
 
         losses = {}
