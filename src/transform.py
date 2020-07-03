@@ -31,7 +31,7 @@ class GeneralizedRCNNTransform(nn.Module):
         for t in targets2:
             t2["boxes"] = t[:, 0:4]
             t2["labels"] = t[:, 4]
-            targets.append(t2)
+            targets.append(t2.copy())
 
         images = [img for img in images]
 
