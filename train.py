@@ -28,8 +28,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Simple training parameter for training a SNet.')
 
     parser.add_argument('--data_path', type=str, default='data/COCO', help='the path folder of dataset')
-    parser.add_argument('--batch_size',  help='Batch size', type=int, default=32)
-    parser.add_argument('--epochs', help='Number of epochs', type=int, default=1000)
+    parser.add_argument('--batch_size',  help='Batch size', type=int, default=64)
+    parser.add_argument('--epochs', help='Number of epochs', type=int, default=100)
     parser.add_argument('--start_epoch', help='start epoch', type=int, default=1)
     parser.add_argument('--gpus', help='Use CUDA on the listed devides', nargs='+', type=int, default=[])
     parser.add_argument('--seed', help='Random seed', type=int, default=1234)
@@ -61,7 +61,7 @@ def main(args=None):
         "shuffle": True,
         "drop_last": True,
         "collate_fn": collater,
-        "num_workers": 8
+        #"num_workers": 1,      # bug ???
     }
 
     test_params = {
@@ -69,7 +69,7 @@ def main(args=None):
         "shuffle": False,
         "drop_last": False,
         "collate_fn": collater,
-        "num_workers": 8
+        #"num_workers": 1,
     }
 
     train_set = CocoDataset(root_dir=args.data_path, set_name='train2017', transform=transform_train)
@@ -101,7 +101,7 @@ def main(args=None):
 
     writer = SummaryWriter(log_dir='./checkpoint/summary')
 
-    for epoch in range(args.start_epoch, 2):
+    for epoch in range(args.start_epoch, 50):
         train_loss = train(train_loader, model, optimizer, args, num_iter, epoch, scheduler)
         test(test_loader, model)
 
@@ -144,7 +144,7 @@ def train(train_loader, model, optimizer, args, num_iter, epoch, scheduler):
         optimizer.step()
 
         epoch_loss.append(total_loss.item())
-        if (i+1)%5 == 0:
+        if (i+1)%50 == 0:
             learning_rate = scheduler.get_last_lr()[0]   # get learning rate
             detector_loss = sum(loss for loss in detector_losses.values())
             proposal_loss = sum(loss for loss in proposal_losses.values())
