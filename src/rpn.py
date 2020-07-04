@@ -6,13 +6,13 @@ from torch import nn, Tensor
 import torchvision
 from torchvision.ops import boxes as box_ops
 
-#from . import _utils as det_utils
-from torchvision.models.detection import _utils as det_utils
+from . import _utils as det_utils
+#from torchvision.models.detection import _utils as det_utils
 #from .image_list import ImageList
 from torchvision.models.detection.image_list import ImageList
 
 from torch.jit.annotations import List, Optional, Dict, Tuple
-
+import pandas as pd
 
 @torch.jit.unused
 def _onnx_get_num_anchors_and_pre_nms_top_n(ob, orig_pre_nms_top_n):
@@ -334,14 +334,28 @@ class RegionProposalNetwork(torch.nn.Module):
         for anchors_per_image, targets_per_image in zip(anchors, targets):
 
             gt_boxes = targets_per_image["boxes"]
+            gt_labels = targets_per_image["labels"]
+            gt_boxes = gt_boxes[gt_labels[:] != -1]     # select gt boxes, remove -1 value boxes.
+            
+            # in this step, we only select hight quality boxes, and the label of each boxes
+            # is only objection or background, don't need to classification which it belong to 
             if gt_boxes.numel() == 0:
                 # Background image (negative example)
                 device = anchors_per_image.device
-                matched_gt_boxes_per_image = torch.zeros(anchors_per_image.shape, dtype=torch.float32, device=device)
-                labels_per_image = torch.zeros((anchors_per_image.shape[0],), dtype=torch.float32, device=device)
+                matched_gt_boxes_per_image = torch.ones(anchors_per_image.shape, dtype=torch.float32, device=device) * (-1)
+                labels_per_image = torch.ones((anchors_per_image.shape[0],), dtype=torch.float32, device=device) * (-1)
             else:
                 match_quality_matrix = box_ops.box_iou(gt_boxes, anchors_per_image)
                 matched_idxs = self.proposal_matcher(match_quality_matrix)
+
+                # debug: each class count
+                """
+                temp1 = matched_idxs.cpu().detach().numpy()
+                count1 = pd.value_counts(temp1)
+                print('each count1:')
+                print(count1)
+                """
+
                 # get the targets corresponding GT for each proposal
                 # NB: need to clamp the indices because we can have a single
                 # GT in the image, and matched_idxs can be -2, which goes
@@ -352,11 +366,11 @@ class RegionProposalNetwork(torch.nn.Module):
                 labels_per_image = labels_per_image.to(dtype=torch.float32)
 
                 # Background (negative examples)
-                bg_indices = matched_idxs == self.proposal_matcher.BELOW_LOW_THRESHOLD
+                bg_indices = matched_idxs == self.proposal_matcher.BELOW_LOW_THRESHOLD  # -1
                 labels_per_image[bg_indices] = torch.tensor(0.0)
 
                 # discard indices that are between thresholds
-                inds_to_discard = matched_idxs == self.proposal_matcher.BETWEEN_THRESHOLDS
+                inds_to_discard = matched_idxs == self.proposal_matcher.BETWEEN_THRESHOLDS # -2
                 labels_per_image[inds_to_discard] = torch.tensor(-1.0)
 
             labels.append(labels_per_image)
